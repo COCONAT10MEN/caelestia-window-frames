@@ -259,7 +259,9 @@ qreal Theme::frameCornerCoverage(qreal distance) const
     // Caelestia's blob shader: alpha = 1 - smoothstep(-w, w, d), d measured
     // into the hole. Fitted on screen: the curve sits ~0.05px inside the
     // configured radius and its soft edge reaches ~1.6px either side.
-    const qreal edge = frameCornerRadius() - 0.05 - frameEdgeShift();
+    // `distance` is measured from the curve's own centre, which already
+    // follows the shell part's edge shift.
+    const qreal edge = frameCornerRadius() - 0.05;
     const qreal w = 1.6;
     const qreal t = std::clamp((edge - distance + w) / (2 * w), 0.0, 1.0);
     return 1 - t * t * (3 - 2 * t);

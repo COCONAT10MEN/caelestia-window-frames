@@ -130,8 +130,19 @@ bool Decoration::inFrameCorner(Qt::Edge side) const
 
 QPointF Decoration::frameCornerCentre(Qt::Edge side) const
 {
+    // Centre of Caelestia's corner as configured: where its blur cut sits.
     const qreal r = m_theme->frameCornerRadius();
     return side == Qt::LeftEdge ? QPointF(r, r) : QPointF(window()->width() - r, r);
+}
+
+QPointF Decoration::frameCurveCentre(Qt::Edge side) const
+{
+    // Centre of the frame's drawn curve. When the shell part moves the
+    // frame's edges over the window, the curve moves with both edges, so its
+    // centre shifts diagonally (the blur cut does not move).
+    const qreal shift = m_theme->frameEdgeShift();
+    const QPointF c = frameCornerCentre(side);
+    return c + QPointF(side == Qt::LeftEdge ? shift : -shift, shift);
 }
 
 QPainterPath Decoration::frameCornerOutside(Qt::Edge side) const
@@ -236,9 +247,10 @@ void Decoration::paintFrameCorners(QPainter *painter) const
     for (Qt::Edge side : {Qt::LeftEdge, Qt::RightEdge}) {
         if (!inFrameCorner(side))
             continue;
-        const QPointF c = frameCornerCentre(side);
+        const QPointF corner = frameCornerCentre(side);
+        const QPointF c = frameCurveCentre(side);
         QPainterPath square;
-        square.addRect(side == Qt::LeftEdge ? QRectF(0, 0, r, r) : QRectF(c.x(), 0, r, r));
+        square.addRect(side == Qt::LeftEdge ? QRectF(0, 0, r, r) : QRectF(corner.x(), 0, r, r));
         QPainterPath hole;
         hole.addEllipse(c, inner, inner);
         const QPainterPath area = square.intersected(frameCornerReach(side).subtracted(hole));

@@ -76,16 +76,30 @@ printf '\n%s%sCaelestia Window Frames is installed.%s\n' "$bold" "$green" "$rese
 printf 'KDE only loads a new window decoration when you log in, so log out and back in\nto see it. Save your work first.\n'
 command -v notify-send >/dev/null && notify-send -a "Caelestia Window Frames" "Installed" "Log out and back in to see your new window frames." || true
 
-if [ -t 0 ]; then
-    printf '\nLog out now? [y/N] '
+# Offer to log out: a KDE dialog when possible, else a question here.
+log_out() {
+    # Asked a moment after this window has closed: a terminal still running
+    # this script would otherwise ask to confirm closing and cancel the log-out.
+    if ! qdbus6 org.kde.Shutdown /Shutdown >/dev/null 2>&1; then
+        printf 'Could not log out automatically: please log out from the menu.\n'
+        return 1
+    fi
+    printf 'Logging out...\n'
+    setsid sh -c "sleep 1; qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logout" >/dev/null 2>&1 < /dev/null &
+    exit 0
+}
+if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] && command -v kdialog >/dev/null; then
+    if kdialog --title "Caelestia Window Frames" --yes-label "Log out now" --no-label "Later" \
+        --yesno "$(printf 'Caelestia Window Frames is installed.\n\nKDE loads a new window decoration when you log in. Log out now to see it?\n(Save your work first.)')"; then
+        log_out
+    fi
+    printf 'OK: log out whenever you are ready.\n'
+elif [ -t 0 ]; then
+    printf '\nLog out now? [Y/n] '
     read -r answer || answer=n
     case "$answer" in
-    [yY]*)
-        qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logout >/dev/null 2>&1 \
-            || printf 'Could not log out automatically: please log out from the menu.\n'
-        exit 0
-        ;;
+    [nN]*) printf 'OK: log out whenever you are ready.\n' ;;
+    *) log_out ;;
     esac
-    printf 'OK: log out whenever you are ready.\n'
 fi
 finish

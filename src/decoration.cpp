@@ -341,18 +341,17 @@ QBrush Decoration::titleBarBrush() const
     return gradient;
 }
 
-void Decoration::paintFrameCorners(QPainter *painter) const
+void Decoration::rebuildGeometry()
 {
-    // Under the frame's curve: across its soft edge and its unblurred band,
-    // hold exactly what makes "frame over us" look like the titlebar next to
-    // it, so no line of wallpaper or double tint shows. Done in thin wedges,
-    // each from the titlebar colour at that spot, so it meets the rest of
-    // the titlebar without a step.
+    m_geometryValid = false;
+    m_titlePath = buildTitleBarPath();
     const qreal r = m_theme->frameCornerRadius();
     const qreal inner = std::max<qreal>(0, r - 2);
     const qreal outer = r + Theme::FrameCornerBand;
     constexpr int Wedges = 8;
-    for (Qt::Edge side : {Qt::LeftEdge, Qt::RightEdge}) {
+    for (int i = 0; i < 2; ++i) {
+        const Qt::Edge side = i == 0 ? Qt::LeftEdge : Qt::RightEdge;
+        m_cornerWedges[i].clear();
         if (!inFrameCorner(side))
             continue;
         const QPointF corner = frameCornerCentre(side);
@@ -362,25 +361,46 @@ void Decoration::paintFrameCorners(QPainter *painter) const
         QPainterPath hole;
         hole.addEllipse(c, inner, inner);
         const QPainterPath area = square.intersected(frameCornerReach(side).subtracted(hole));
-
         // Qt angles: 0 = right, 90 = up. Left corner faces 90..180, right 0..90.
         const qreal start = side == Qt::LeftEdge ? 90 : 0;
-        for (int i = 0; i < Wedges; ++i) {
-            const qreal a0 = start + 90.0 * i / Wedges;
-            const qreal sweep = 90.0 / Wedges;
-            const qreal mid = qDegreesToRadians(a0 + sweep / 2);
-            const QColor target = titleBarColourAt(c.x() + std::cos(mid) * r);
-
+        for (int w = 0; w < Wedges; ++w) {
             QPainterPath wedge;
             wedge.moveTo(c);
-            wedge.arcTo(QRectF(c.x() - outer - 4, c.y() - outer - 4, (outer + 4) * 2, (outer + 4) * 2), a0, sweep);
+            wedge.arcTo(QRectF(c.x() - outer - 4, c.y() - outer - 4, (outer + 4) * 2, (outer + 4) * 2), start + 90.0 * w / Wedges, 90.0 / Wedges);
             wedge.closeSubpath();
+            m_cornerWedges[i].append(area.intersected(wedge));
+        }
+    }
+    m_geometryValid = true;
+}
 
+void Decoration::paintFrameCorners(QPainter *painter) const
+{
+    // Under the frame's curve: across its soft edge and its unblurred band,
+    // hold exactly what makes "frame over us" look like the titlebar next to
+    // it, so no line of wallpaper or double tint shows. Done in thin wedges,
+    // each from the titlebar colour at that spot, so it meets the rest of
+    // the titlebar without a step. The wedge shapes are built per layout
+    // (rebuildGeometry); only their colours are worked out here.
+    const qreal r = m_theme->frameCornerRadius();
+    const qreal inner = std::max<qreal>(0, r - 2);
+    const qreal outer = r + Theme::FrameCornerBand;
+    for (int i = 0; i < 2; ++i) {
+        const QList<QPainterPath> &wedges = m_cornerWedges[i];
+        if (wedges.isEmpty())
+            continue;
+        const Qt::Edge side = i == 0 ? Qt::LeftEdge : Qt::RightEdge;
+        const QPointF c = frameCurveCentre(side);
+        const qreal start = side == Qt::LeftEdge ? 90 : 0;
+        const int count = wedges.size();
+        for (int w = 0; w < count; ++w) {
+            const qreal mid = qDegreesToRadians(start + 90.0 * (w + 0.5) / count);
+            const QColor target = titleBarColourAt(c.x() + std::cos(mid) * r);
             QRadialGradient gradient(c, outer);
             gradient.setColorAt(0, target);
             for (qreal d = inner; d <= outer + 0.001; d += 0.25)
                 gradient.setColorAt(std::min<qreal>(1, d / outer), m_theme->underFrame(target, m_theme->frameCornerCoverage(d)));
-            painter->fillPath(area.intersected(wedge), gradient);
+            painter->fillPath(wedges[w], gradient);
         }
     }
 }
@@ -445,6 +465,11 @@ bool Decoration::isTranslucent() const
 }
 
 QPainterPath Decoration::titleBarPath() const
+{
+    return m_geometryValid ? m_titlePath : buildTitleBarPath();
+}
+
+QPainterPath Decoration::buildTitleBarPath() const
 {
     const QRectF bar(0, 0, window()->width(), titleHeight());
     const KDecoration3::BorderRadius c = corners();
@@ -514,6 +539,7 @@ void Decoration::updateLayout()
         setBorderOutline(KDecoration3::BorderOutline(OutlineWidth, outlineColour(), radius));
 
     setOpaque(!isTranslucent());
+    rebuildGeometry();
     updateBlur();
 
     updateButtonsGeometry();

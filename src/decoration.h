@@ -53,6 +53,10 @@ public:
     QPainterPath frameCornerOutside(Qt::Edge side) const;
     QPainterPath frameCornerReach(Qt::Edge side) const;
     void paintFrameCorners(QPainter *painter) const;
+    /// Builds the titlebar's shape and the corner wedges once per layout
+    /// (size, state, frame settings), so a repaint only fills them.
+    void rebuildGeometry();
+    QPainterPath buildTitleBarPath() const;
     void paintFrameEdges(QPainter *painter) const;
     /// Caption and icon colour.
     QColor foregroundColour() const;
@@ -95,6 +99,11 @@ private:
     QRectF m_areaRect;
     Qt::Edges m_placedEdges;
     bool m_placed = false;
+
+    QPainterPath m_titlePath;
+    bool m_geometryValid = false;
+    // Per top corner (0 left, 1 right): the wedges under the frame's curve.
+    QList<QPainterPath> m_cornerWedges[2];
 
     std::shared_ptr<Theme> m_theme;
     KDecoration3::DecorationButtonGroup *m_leftButtons = nullptr;

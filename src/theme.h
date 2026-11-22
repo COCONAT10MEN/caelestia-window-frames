@@ -75,7 +75,7 @@ public:
     /// corner at the origin): its BlurCorners staircase of `blurQuality`
     /// strips at radius rounding + 2, snapped outward to whole pixels. Empty
     /// when "High Quality Blur Masks" is off.
-    QPainterPath frameCornerUnblurred() const;
+    QPainterPath frameCornerUnblurred() const { return m_unblurredSteps; }
     /// How much of a pixel the frame's inner corner covers, `distance` px
     /// from the curve's centre (fitted to Caelestia 2.7.5 on screen).
     qreal frameCornerCoverage(qreal distance) const;
@@ -121,6 +121,8 @@ private:
     Qt::Edge m_barEdge = Qt::LeftEdge;
     qreal m_frameRounding = 25;
     bool m_blurMask = true;
+    QPainterPath m_unblurredSteps;
+    QPainterPath buildFrameCornerUnblurred() const;
     int m_blurQuality = 20;
     bool m_islands = false;
     bool m_animEnabled = true;

@@ -163,6 +163,8 @@ void Theme::loadShell()
     const QJsonObject anim = appearance.value(QStringLiteral("anim")).toObject();
     m_animEnabled = anim.value(QStringLiteral("enabled")).toBool(true);
     m_animScale = std::max(0.0, anim.value(QStringLiteral("durations")).toObject().value(QStringLiteral("scale")).toDouble(1.0));
+    // Rebuilt only when the shell's settings change.
+    m_unblurredSteps = buildFrameCornerUnblurred();
 }
 
 QColor Theme::colour(const QString &name) const
@@ -267,7 +269,7 @@ qreal Theme::frameCornerCoverage(qreal distance) const
     return 1 - t * t * (3 - 2 * t);
 }
 
-QPainterPath Theme::frameCornerUnblurred() const
+QPainterPath Theme::buildFrameCornerUnblurred() const
 {
     QPainterPath area;
     const qreal r = frameCornerRadius();

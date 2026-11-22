@@ -192,16 +192,19 @@ bool Decoration::touchesFrame() const
 
 QColor Decoration::titleBarColourAt(qreal x) const
 {
-    if (!touchesFrame() || !isTranslucent())
+    if (!isTranslucent())
         return titleBarColour();
 
-    // Mirror what Caelestia's blur does to the frame right above: blend in
-    // the app's own background, by how much the frame's blur takes it in at
-    // this point along the top (less towards the bar).
+    // One material for every titlebar, maximized or not: Caelestia's frame
+    // as it looks over a window, i.e. with the app's own background blended
+    // in the way the frame's blur takes it in. Where the titlebar actually
+    // meets the frame, it also follows the frame's shading towards the bar.
     const QColor app = window()->palette().color(QPalette::Active, QPalette::Window);
-    const Qt::Edges edges = isMaximized() ? Qt::Edges(Qt::LeftEdge | Qt::RightEdge | Qt::TopEdge) : window()->adjacentScreenEdges();
+    const Qt::Edges edges = !touchesFrame() ? Qt::Edges()
+        : isMaximized()                     ? Qt::Edges(Qt::LeftEdge | Qt::RightEdge | Qt::TopEdge)
+                                            : window()->adjacentScreenEdges();
     const Qt::Edge bar = m_theme->barEdge();
-    if (bar == Qt::TopEdge)
+    if (bar == Qt::TopEdge && touchesFrame())
         return m_theme->frameColourWithApp(app, Theme::frameAppShare(0, true));
 
     qreal share = Theme::frameAppShare(1e6, false);
@@ -217,8 +220,10 @@ QColor Decoration::titleBarColourAt(qreal x) const
 
 QBrush Decoration::titleBarBrush() const
 {
-    if (!touchesFrame() || !isTranslucent())
+    if (!isTranslucent())
         return titleBarColour();
+    if (!touchesFrame())
+        return titleBarColourAt(window()->width() / 2);
 
     const qreal width = window()->width();
     QLinearGradient gradient(0, 0, width, 0);

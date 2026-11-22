@@ -3,14 +3,14 @@
 # Built from the repository this file sits in (no download). Use ../rebuild.sh.
 
 pkgname=caelestia-window-frames
-pkgver=1.2.1
+pkgver=1.3.0
 pkgrel=1
 pkgdesc="KWin window decoration that matches Caelestia KDE: its Material You colours, transparency, blur and motion"
 arch=('x86_64')
 url="https://github.com/COCONAT10MEN/caelestia-window-frames"
 license=('MIT')
 depends=('kwin' 'kdecoration' 'qt6-base' 'kcoreaddons' 'ttf-material-symbols-variable')
-makedepends=('cmake' 'extra-cmake-modules')
+makedepends=('cmake' 'extra-cmake-modules' 'vulkan-headers')
 
 build() {
     cmake -B build -S "$startdir/.." \

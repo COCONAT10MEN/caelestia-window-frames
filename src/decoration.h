@@ -10,6 +10,7 @@
 #include <QColor>
 #include <QFont>
 #include <QPainterPath>
+#include <QPointer>
 #include <QVariantList>
 
 #include <memory>
@@ -41,6 +42,11 @@ public:
     QBrush titleBarBrush() const;
     QColor titleBarColourAt(qreal x) const;
     bool touchesFrame() const;
+    /// The sides where this window meets Caelestia's frame (the edges of the
+    /// work area inside the frame and bar), from its real place on screen.
+    Qt::Edges frameEdges() const;
+    /// Distance in px from the bar's edge to titlebar x, or -1 if unknown.
+    qreal distanceFromBar(qreal x) const;
     bool inFrameCorner(Qt::Edge side) const;
     QPointF frameCornerCentre(Qt::Edge side) const;
     QPointF frameCurveCentre(Qt::Edge side) const;
@@ -77,10 +83,18 @@ private:
 
     bool m_chevronHovered = false;
     bool m_chevronPressed = false;
-    QString m_debugKey; // TEMPORARY diagnostics
     std::unique_ptr<StateLayer> m_chevronLayer;
     // 1 focused, 0 not: the caption, icons and outline fade between the two.
     std::unique_ptr<Tween> m_active;
+
+    void findKWinWindow();
+    void updatePlacement();
+    // The window as KWin knows it: where it is, and the work area around it.
+    QPointer<QObject> m_kwinWindow;
+    QRectF m_frameRect;
+    QRectF m_areaRect;
+    Qt::Edges m_placedEdges;
+    bool m_placed = false;
 
     std::shared_ptr<Theme> m_theme;
     KDecoration3::DecorationButtonGroup *m_leftButtons = nullptr;

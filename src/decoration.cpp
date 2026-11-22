@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 #include "decoration.h"
+
+// KWin internals (see CMakeLists.txt)
+#include "window.h"
+#include "workspace.h"
 #include "button.h"
 #include "motion.h"
 #include "statelayer.h"
@@ -81,7 +85,87 @@ bool Decoration::init()
     m_rightButtons->setSpacing(ButtonSpacing);
 
     updateLayout();
+    // KWin hands the decoration to its window right after this returns.
+    QTimer::singleShot(0, this, &Decoration::findKWinWindow);
     return true;
+}
+
+void Decoration::findKWinWindow()
+{
+    auto *workspace = KWin::workspace();
+    if (!workspace || m_kwinWindow)
+        return;
+    for (KWin::Window *w : workspace->windows()) {
+        if (w->decoration() != this)
+            continue;
+        m_kwinWindow = w;
+        connect(w, &KWin::Window::frameGeometryChanged, this, &Decoration::updatePlacement);
+        connect(w, &KWin::Window::outputChanged, this, &Decoration::updatePlacement);
+        updatePlacement();
+        return;
+    }
+}
+
+void Decoration::updatePlacement()
+{
+    auto *workspace = KWin::workspace();
+    auto *w = qobject_cast<KWin::Window *>(m_kwinWindow.data());
+    if (!workspace || !w)
+        return;
+    const QRectF frame = w->frameGeometry();
+    const QRectF area = workspace->clientArea(KWin::MaximizeArea, w);
+    // Within a pixel counts as touching (fractional scaling rounds).
+    const auto near = [](qreal a, qreal b) {
+        return std::abs(a - b) < 1.5;
+    };
+    Qt::Edges edges;
+    if (near(frame.top(), area.top()))
+        edges |= Qt::TopEdge;
+    if (near(frame.left(), area.left()))
+        edges |= Qt::LeftEdge;
+    if (near(frame.right(), area.right()))
+        edges |= Qt::RightEdge;
+    if (near(frame.bottom(), area.bottom()))
+        edges |= Qt::BottomEdge;
+
+    const bool edgesChanged = !m_placed || edges != m_placedEdges || area != m_areaRect;
+    const bool moved = frame.topLeft() != m_frameRect.topLeft() || frame.width() != m_frameRect.width();
+    m_frameRect = frame;
+    m_areaRect = area;
+    m_placedEdges = edges;
+    m_placed = true;
+    if (edgesChanged) {
+        updateLayout();
+    } else if (moved && isTranslucent()) {
+        // The shading follows the distance to the bar: only redraw when it
+        // can show (near the bar or the right border).
+        const qreal reach = 480;
+        if (frame.left() - area.left() < reach || area.right() - frame.right() < reach)
+            update(titleBar());
+    }
+}
+
+Qt::Edges Decoration::frameEdges() const
+{
+    if (isMaximized())
+        return Qt::LeftEdge | Qt::RightEdge | Qt::TopEdge | Qt::BottomEdge;
+    if (m_placed)
+        return m_placedEdges;
+    return window()->adjacentScreenEdges();
+}
+
+qreal Decoration::distanceFromBar(qreal x) const
+{
+    if (!m_placed)
+        return -1;
+    switch (m_theme->barEdge()) {
+    case Qt::LeftEdge:
+        return m_frameRect.left() + x - m_areaRect.left();
+    case Qt::RightEdge:
+        return m_areaRect.right() - (m_frameRect.left() + x);
+    default:
+        return -1;
+    }
 }
 
 qreal Decoration::titleHeight() const
@@ -109,7 +193,7 @@ KDecoration3::BorderRadius Decoration::corners() const
     // the titlebar shapes its own top ones to it, see frameCornerPath()).
     // Free corners get the usual rounding.
     const qreal free = isMaximized() ? 0 : cornerRadius();
-    const Qt::Edges e = window()->adjacentScreenEdges();
+    const Qt::Edges e = frameEdges();
     const auto round = [&](Qt::Edge a, Qt::Edge b) {
         return isMaximized() || (e & a) || (e & b) ? 0.0 : free;
     };
@@ -124,8 +208,8 @@ bool Decoration::inFrameCorner(Qt::Edge side) const
     // A top corner sitting in a corner of the screen, under the frame's curve.
     if (m_theme->frameCornerRadius() <= 0 || !isTranslucent())
         return false;
-    const Qt::Edges e = window()->adjacentScreenEdges();
-    return isMaximized() || ((e & Qt::TopEdge) && (e & side));
+    const Qt::Edges e = frameEdges();
+    return (e & Qt::TopEdge) && (e & side);
 }
 
 QPointF Decoration::frameCornerCentre(Qt::Edge side) const
@@ -187,7 +271,7 @@ QColor Decoration::titleBarColour() const
 
 bool Decoration::touchesFrame() const
 {
-    return isMaximized() || (window()->adjacentScreenEdges() & Qt::TopEdge);
+    return frameEdges() & Qt::TopEdge;
 }
 
 QColor Decoration::titleBarColourAt(qreal x) const
@@ -195,26 +279,34 @@ QColor Decoration::titleBarColourAt(qreal x) const
     if (!isTranslucent())
         return titleBarColour();
 
-    // One material for every titlebar, maximized or not: Caelestia's frame
-    // as it looks over a window, i.e. with the app's own background blended
-    // in the way the frame's blur takes it in. Where the titlebar actually
-    // meets the frame, it also follows the frame's shading towards the bar.
+    // One material for every titlebar: Caelestia's frame as it looks over a
+    // window, i.e. with the app's own background blended in the way the
+    // frame's blur takes it in, lighter towards the bar. A titlebar gets the
+    // same shading a maximized one has at that same spot on screen, wherever
+    // the window is.
     const QColor app = window()->palette().color(QPalette::Active, QPalette::Window);
-    const Qt::Edges edges = !touchesFrame() ? Qt::Edges()
-        : isMaximized()                     ? Qt::Edges(Qt::LeftEdge | Qt::RightEdge | Qt::TopEdge)
-                                            : window()->adjacentScreenEdges();
     const Qt::Edge bar = m_theme->barEdge();
-    if (bar == Qt::TopEdge && touchesFrame())
-        return m_theme->frameColourWithApp(app, Theme::frameAppShare(0, true));
+    if (bar == Qt::TopEdge || bar == Qt::BottomEdge)
+        return m_theme->frameColourWithApp(app, Theme::frameAppShare(touchesFrame() ? 0 : 1e6, true));
 
-    qreal share = Theme::frameAppShare(1e6, false);
+    const qreal open = Theme::frameAppShare(1e6, false);
+    qreal share = open;
     const auto dent = [&](qreal distance, bool barSide) {
-        share -= Theme::frameAppShare(1e6, false) - Theme::frameAppShare(distance, barSide);
+        share -= open - Theme::frameAppShare(distance, barSide);
     };
-    if (edges & Qt::LeftEdge)
-        dent(x, bar == Qt::LeftEdge);
-    if (edges & Qt::RightEdge)
-        dent(window()->width() - x, bar == Qt::RightEdge);
+    if (m_placed) {
+        const qreal screenX = m_frameRect.left() + x;
+        const bool barLeft = bar == Qt::LeftEdge;
+        dent(barLeft ? screenX - m_areaRect.left() : m_areaRect.right() - screenX, true);
+        dent(barLeft ? m_areaRect.right() - screenX : screenX - m_areaRect.left(), false);
+    } else if (touchesFrame()) {
+        // Without KWin (e.g. a preview): by the edges the window reports.
+        const Qt::Edges edges = frameEdges();
+        if (edges & Qt::LeftEdge)
+            dent(x, bar == Qt::LeftEdge);
+        if (edges & Qt::RightEdge)
+            dent(window()->width() - x, bar == Qt::RightEdge);
+    }
     return m_theme->frameColourWithApp(app, share);
 }
 
@@ -222,7 +314,7 @@ QBrush Decoration::titleBarBrush() const
 {
     if (!isTranslucent())
         return titleBarColour();
-    if (!touchesFrame())
+    if (!m_placed && !touchesFrame())
         return titleBarColourAt(window()->width() / 2);
 
     const qreal width = window()->width();
@@ -294,7 +386,7 @@ void Decoration::paintFrameEdges(QPainter *painter) const
     const qreal height = titleHeight();
     const qreal r = m_theme->frameCornerRadius();
     const KDecoration3::BorderRadius c = corners();
-    const Qt::Edges edges = isMaximized() ? Qt::Edges(Qt::LeftEdge | Qt::RightEdge | Qt::TopEdge) : window()->adjacentScreenEdges();
+    const Qt::Edges edges = frameEdges();
     const qreal left = inFrameCorner(Qt::LeftEdge) ? r : c.topLeft();
     const qreal right = inFrameCorner(Qt::RightEdge) ? r : c.topRight();
 
@@ -388,16 +480,6 @@ QColor Decoration::foregroundColour() const
 
 void Decoration::updateLayout()
 {
-    // TEMPORARY diagnostics (removed before release): what KWin reports.
-    {
-        const int edges = int(window()->adjacentScreenEdges());
-        const QString key = QStringLiteral("%1/%2").arg(int(isMaximized())).arg(edges);
-        if (key != m_debugKey) {
-            m_debugKey = key;
-            qInfo().noquote() << "caelestia-window-frames-debug:" << window()->windowClass() << "maximized" << isMaximized()
-                              << "edges" << edges << "(L1 T2 R4 B8)" << "width" << window()->width();
-        }
-    }
     const qreal height = titleHeight();
     const qreal width = window()->width();
 

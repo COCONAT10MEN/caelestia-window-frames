@@ -3,7 +3,7 @@
   "name": "Caelestia Window Frames",
   "description": "The shell half of the Caelestia window decoration: lines Caelestia's screen frame up with windows to the pixel, and keeps the frame's shadow off windows (it still falls on the wallpaper). The decoration itself is built with install.sh (see the README).",
   "icon": "icon.svg",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "type": "quickshell",
   "ui": "shell/main.qml",
   "author": {

@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSettings>
 #include <QStandardPaths>
 
 #include <algorithm>
@@ -137,6 +138,17 @@ void Theme::loadShell()
     const QJsonObject shell = readJson(m_shellPath);
     m_frameRounding = std::max(0.0, shell.value(QStringLiteral("border")).toObject().value(QStringLiteral("rounding")).toDouble(25));
     m_islands = appearance.value(QStringLiteral("islands")).toBool(false);
+    m_blurMask = appearance.value(QStringLiteral("blurMask")).toBool(true);
+    // "Blur Corner Quality" lives in the shell's own settings file.
+    m_blurQuality = 20;
+    for (const QString &name : {QStringLiteral("/Caelestia/caelestia-shell.conf"), QStringLiteral("/Caelestia/noctalia-qs.conf")}) {
+        QSettings ini(configHome() + name, QSettings::IniFormat);
+        const QVariant value = ini.value(QStringLiteral("Blur/blurQuality"));
+        if (value.isValid()) {
+            m_blurQuality = std::clamp(value.toInt(), 1, 100);
+            break;
+        }
+    }
     const QString bar = shell.value(QStringLiteral("bar")).toObject().value(QStringLiteral("position")).toString(QStringLiteral("left"));
     m_barEdge = bar == QLatin1String("right") ? Qt::RightEdge
         : bar == QLatin1String("top")         ? Qt::TopEdge
@@ -246,6 +258,29 @@ qreal Theme::frameCornerCoverage(qreal distance) const
     const qreal w = 1.6;
     const qreal t = std::clamp((edge - distance + w) / (2 * w), 0.0, 1.0);
     return 1 - t * t * (3 - 2 * t);
+}
+
+QPainterPath Theme::frameCornerUnblurred() const
+{
+    QPainterPath area;
+    const qreal r = frameCornerRadius();
+    if (r <= 0 || !m_blurMask)
+        return area;
+    // Mirrors Caelestia's BlurCorners: strip m (1..steps) reaches up to
+    // m/steps of the radius and as wide as the arc at the strip's outer
+    // edge; Caelestia subtracts their union from the frame's blur.
+    const qreal outer = r + 2;
+    const int steps = m_blurQuality;
+    for (int m = 1; m <= steps; ++m) {
+        const qreal prev = qreal(m - 1) / steps;
+        const qreal width = outer * std::sqrt(1 - prev * prev);
+        const qreal height = outer * m / steps;
+        // Snapped outward: cover every pixel the region might touch.
+        const qreal x = std::floor(r - width);
+        const qreal y = std::floor(r - height);
+        area.addRect(QRectF(x, y, std::ceil(r + 1) - x, std::ceil(r + 1) - y));
+    }
+    return area.simplified();
 }
 
 }

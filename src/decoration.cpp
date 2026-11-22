@@ -16,6 +16,7 @@
 #include <QLinearGradient>
 #include <QRadialGradient>
 #include <QPainter>
+#include <QTransform>
 #include <QtMath>
 #include <QPainterPath>
 
@@ -141,9 +142,23 @@ QPainterPath Decoration::frameCornerOutside(Qt::Edge side) const
     const QPointF c = frameCornerCentre(side);
     QPainterPath square;
     square.addRect(side == Qt::LeftEdge ? QRectF(0, 0, r, r) : QRectF(c.x(), 0, r, r));
-    QPainterPath disk;
-    disk.addEllipse(c, r + Theme::FrameCornerBand, r + Theme::FrameCornerBand);
-    return square.subtracted(disk);
+    return square.subtracted(frameCornerReach(side));
+}
+
+QPainterPath Decoration::frameCornerReach(Qt::Edge side) const
+{
+    // How far under the frame the titlebar reaches at a corner: past the
+    // curve's soft edge, and over all of Caelestia's unblurred staircase.
+    const qreal r = m_theme->frameCornerRadius();
+    const QPointF c = frameCornerCentre(side);
+    QPainterPath reach;
+    reach.addEllipse(c, r + Theme::FrameCornerBand, r + Theme::FrameCornerBand);
+    QPainterPath steps = m_theme->frameCornerUnblurred();
+    if (side == Qt::RightEdge) {
+        // Mirror the staircase into the right corner.
+        steps = QTransform(-1, 0, 0, 1, window()->width(), 0).map(steps);
+    }
+    return reach.united(steps);
 }
 
 bool Decoration::isMaximized() const
@@ -224,11 +239,9 @@ void Decoration::paintFrameCorners(QPainter *painter) const
         const QPointF c = frameCornerCentre(side);
         QPainterPath square;
         square.addRect(side == Qt::LeftEdge ? QRectF(0, 0, r, r) : QRectF(c.x(), 0, r, r));
-        QPainterPath ring;
-        ring.addEllipse(c, outer, outer);
         QPainterPath hole;
         hole.addEllipse(c, inner, inner);
-        const QPainterPath area = square.intersected(ring.subtracted(hole));
+        const QPainterPath area = square.intersected(frameCornerReach(side).subtracted(hole));
 
         // Qt angles: 0 = right, 90 = up. Left corner faces 90..180, right 0..90.
         const qreal start = side == Qt::LeftEdge ? 90 : 0;
@@ -240,7 +253,7 @@ void Decoration::paintFrameCorners(QPainter *painter) const
 
             QPainterPath wedge;
             wedge.moveTo(c);
-            wedge.arcTo(QRectF(c.x() - outer - 1, c.y() - outer - 1, (outer + 1) * 2, (outer + 1) * 2), a0, sweep);
+            wedge.arcTo(QRectF(c.x() - outer - 4, c.y() - outer - 4, (outer + 4) * 2, (outer + 4) * 2), a0, sweep);
             wedge.closeSubpath();
 
             QRadialGradient gradient(c, outer);

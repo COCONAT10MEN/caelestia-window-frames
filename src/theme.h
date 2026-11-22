@@ -8,6 +8,7 @@
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QObject>
+#include <QPainterPath>
 #include <QString>
 #include <QTimer>
 
@@ -69,6 +70,12 @@ public:
     /// Width of the band along the frame's inner corner curve where Caelestia
     /// turns its blur off (its BlurCorners: rounding + 2, as stepped regions).
     static constexpr qreal FrameCornerBand = 2.5;
+    /// The area along a frame corner where Caelestia leaves its frame
+    /// unblurred, in the corner's own coordinates (curve centre at (r, r),
+    /// corner at the origin): its BlurCorners staircase of `blurQuality`
+    /// strips at radius rounding + 2, snapped outward to whole pixels. Empty
+    /// when "High Quality Blur Masks" is off.
+    QPainterPath frameCornerUnblurred() const;
     /// How much of a pixel the frame's inner corner covers, `distance` px
     /// from the curve's centre (fitted to Caelestia 2.7.5 on screen).
     qreal frameCornerCoverage(qreal distance) const;
@@ -105,6 +112,8 @@ private:
     bool m_pitchBlack = false;
     Qt::Edge m_barEdge = Qt::LeftEdge;
     qreal m_frameRounding = 25;
+    bool m_blurMask = true;
+    int m_blurQuality = 20;
     bool m_islands = false;
     bool m_animEnabled = true;
     qreal m_animScale = 1.0;

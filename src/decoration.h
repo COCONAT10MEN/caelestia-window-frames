@@ -44,6 +44,7 @@ public:
     bool inFrameCorner(Qt::Edge side) const;
     QPointF frameCornerCentre(Qt::Edge side) const;
     QPainterPath frameCornerOutside(Qt::Edge side) const;
+    QPainterPath frameCornerReach(Qt::Edge side) const;
     void paintFrameCorners(QPainter *painter) const;
     /// Caption and icon colour.
     QColor foregroundColour() const;

@@ -240,10 +240,10 @@ QColor Theme::underFrame(const QColor &target, qreal coverage) const
 qreal Theme::frameCornerCoverage(qreal distance) const
 {
     // Caelestia's blob shader: alpha = 1 - smoothstep(-w, w, d), d measured
-    // into the hole. On screen the curve sits ~0.1px inside the configured
-    // radius and its soft edge is ~1.3px either side.
-    const qreal edge = frameCornerRadius() - 0.1;
-    const qreal w = 1.3;
+    // into the hole. Fitted on screen: the curve sits ~0.05px inside the
+    // configured radius and its soft edge reaches ~1.6px either side.
+    const qreal edge = frameCornerRadius() - 0.05;
+    const qreal w = 1.6;
     const qreal t = std::clamp((edge - distance + w) / (2 * w), 0.0, 1.0);
     return 1 - t * t * (3 - 2 * t);
 }

@@ -66,9 +66,8 @@ if [ "$HAS_CAELESTIA" = 1 ]; then
         mkdir -p "$PLUGIN"
         cp -r metadata.json LICENSE shell "$PLUGIN"/
     fi
-    # The shell restarts to load it (and once more by itself after patching).
-    sh "$PLUGIN/shell/restart-shell.sh" "$SHELL_DIR/shell.qml" || true
-    printf '  Done.\n'
+    # No shell restart here: it loads at the next login, with the decoration.
+    printf '  Done (active after you log back in).\n'
 fi
 
 trap - ERR
@@ -78,14 +77,27 @@ command -v notify-send >/dev/null && notify-send -a "Caelestia Window Frames" "I
 
 # Offer to log out: a KDE dialog when possible, else a question here.
 log_out() {
-    # Asked a moment after this window has closed: a terminal still running
-    # this script would otherwise ask to confirm closing and cancel the log-out.
-    if ! qdbus6 org.kde.Shutdown /Shutdown >/dev/null 2>&1; then
-        printf 'Could not log out automatically: please log out from the menu.\n'
-        return 1
-    fi
+    # Runs on its own after this window has closed (a terminal still running
+    # this script could ask to confirm closing and cancel the log-out). It asks
+    # KDE to log out, checks that it really started, tries once more, and as a
+    # last resort opens KDE's own log-out dialog. Steps go to a log file.
+    local log="${XDG_CACHE_HOME:-$HOME/.cache}/caelestia-window-frames-logout.log"
+    mkdir -p "$(dirname "$log")"
     printf 'Logging out...\n'
-    setsid sh -c "sleep 1; qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logout" >/dev/null 2>&1 < /dev/null &
+    setsid bash -c '
+        log="$1"
+        started() { [ "$(qdbus6 org.kde.ksmserver /KSMServer org.kde.KSMServerInterface.isShuttingDown 2>/dev/null)" = true ]; }
+        echo "$(date +%T) log-out requested" >"$log"
+        sleep 2
+        for attempt in 1 2; do
+            qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logout >>"$log" 2>&1
+            echo "$(date +%T) attempt $attempt sent (exit $?)" >>"$log"
+            sleep 5
+            started && { echo "$(date +%T) logging out" >>"$log"; exit 0; }
+        done
+        echo "$(date +%T) not started: opening KDE'"'"'s log-out dialog" >>"$log"
+        qdbus6 org.kde.LogoutPrompt /LogoutPrompt org.kde.LogoutPrompt.promptLogout >>"$log" 2>&1
+    ' _ "$log" >/dev/null 2>&1 </dev/null &
     exit 0
 }
 if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] && command -v kdialog >/dev/null; then

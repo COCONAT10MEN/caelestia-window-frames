@@ -28,12 +28,9 @@ printf '  Done.\n'
 if [ -f "$PLUGIN/shell/patch.py" ]; then
     step "Removing the Caelestia part"
     python3 -I "$PLUGIN/shell/patch.py" revert "$SHELL_DIR" >/dev/null || true
-    RESTART="$PLUGIN/shell/restart-shell.sh"
-    cp "$RESTART" /tmp/caelestia-window-frames-restart.sh 2>/dev/null || true
     rm -rf "$PLUGIN"
     rm -f "${XDG_STATE_HOME:-$HOME/.local/state}/caelestia/window-frames-edge"
-    sh /tmp/caelestia-window-frames-restart.sh "$SHELL_DIR/shell.qml" 2>/dev/null || true
-    printf '  Done: Caelestia is back to its original files.\n'
+    printf '  Done: Caelestia is back to its original files (fully after you log back in).\n'
 fi
 
 if pacman -Q caelestia-window-frames >/dev/null 2>&1; then
@@ -45,14 +42,27 @@ printf '\n%s%sCaelestia Window Frames is removed.%s\n' "$bold" "$green" "$reset"
 printf 'Log out and back in to finish switching back to Breeze.\n'
 # Offer to log out: a KDE dialog when possible, else a question here.
 log_out() {
-    # Asked a moment after this window has closed: a terminal still running
-    # this script would otherwise ask to confirm closing and cancel the log-out.
-    if ! qdbus6 org.kde.Shutdown /Shutdown >/dev/null 2>&1; then
-        printf 'Could not log out automatically: please log out from the menu.\n'
-        return 1
-    fi
+    # Runs on its own after this window has closed (a terminal still running
+    # this script could ask to confirm closing and cancel the log-out). It asks
+    # KDE to log out, checks that it really started, tries once more, and as a
+    # last resort opens KDE's own log-out dialog. Steps go to a log file.
+    local log="${XDG_CACHE_HOME:-$HOME/.cache}/caelestia-window-frames-logout.log"
+    mkdir -p "$(dirname "$log")"
     printf 'Logging out...\n'
-    setsid sh -c "sleep 1; qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logout" >/dev/null 2>&1 < /dev/null &
+    setsid bash -c '
+        log="$1"
+        started() { [ "$(qdbus6 org.kde.ksmserver /KSMServer org.kde.KSMServerInterface.isShuttingDown 2>/dev/null)" = true ]; }
+        echo "$(date +%T) log-out requested" >"$log"
+        sleep 2
+        for attempt in 1 2; do
+            qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logout >>"$log" 2>&1
+            echo "$(date +%T) attempt $attempt sent (exit $?)" >>"$log"
+            sleep 5
+            started && { echo "$(date +%T) logging out" >>"$log"; exit 0; }
+        done
+        echo "$(date +%T) not started: opening KDE'"'"'s log-out dialog" >>"$log"
+        qdbus6 org.kde.LogoutPrompt /LogoutPrompt org.kde.LogoutPrompt.promptLogout >>"$log" 2>&1
+    ' _ "$log" >/dev/null 2>&1 </dev/null &
     exit 0
 }
 if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] && command -v kdialog >/dev/null; then

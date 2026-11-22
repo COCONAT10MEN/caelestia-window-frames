@@ -85,8 +85,15 @@ bool Decoration::init()
     m_rightButtons->setSpacing(ButtonSpacing);
 
     updateLayout();
-    // KWin hands the decoration to its window right after this returns.
-    QTimer::singleShot(0, this, &Decoration::findKWinWindow);
+    // KWin creates the decoration before it lists the window: look it up
+    // when KWin adds a window, on layout updates, and shortly after.
+    if (auto *workspace = KWin::workspace()) {
+        connect(workspace, &KWin::Workspace::windowAdded, this, [this] {
+            findKWinWindow();
+        });
+    }
+    for (int delay : {0, 50, 250, 1000})
+        QTimer::singleShot(delay, this, &Decoration::findKWinWindow);
     return true;
 }
 
@@ -99,9 +106,13 @@ void Decoration::findKWinWindow()
         if (w->decoration() != this)
             continue;
         m_kwinWindow = w;
+        if (auto *workspace = KWin::workspace())
+            disconnect(workspace, &KWin::Workspace::windowAdded, this, nullptr);
         connect(w, &KWin::Window::frameGeometryChanged, this, &Decoration::updatePlacement);
         connect(w, &KWin::Window::outputChanged, this, &Decoration::updatePlacement);
-        updatePlacement();
+        // Applied on the next turn of the event loop: this can be reached
+        // from inside updateLayout().
+        QTimer::singleShot(0, this, &Decoration::updatePlacement);
         return;
     }
 }
@@ -480,6 +491,8 @@ QColor Decoration::foregroundColour() const
 
 void Decoration::updateLayout()
 {
+    if (!m_kwinWindow)
+        findKWinWindow();
     const qreal height = titleHeight();
     const qreal width = window()->width();
 

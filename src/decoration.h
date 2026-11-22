@@ -77,6 +77,7 @@ private:
 
     bool m_chevronHovered = false;
     bool m_chevronPressed = false;
+    QString m_debugKey; // TEMPORARY diagnostics
     std::unique_ptr<StateLayer> m_chevronLayer;
     // 1 focused, 0 not: the caption, icons and outline fade between the two.
     std::unique_ptr<Tween> m_active;

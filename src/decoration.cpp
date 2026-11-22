@@ -388,6 +388,16 @@ QColor Decoration::foregroundColour() const
 
 void Decoration::updateLayout()
 {
+    // TEMPORARY diagnostics (removed before release): what KWin reports.
+    {
+        const int edges = int(window()->adjacentScreenEdges());
+        const QString key = QStringLiteral("%1/%2").arg(int(isMaximized())).arg(edges);
+        if (key != m_debugKey) {
+            m_debugKey = key;
+            qInfo().noquote() << "caelestia-window-frames-debug:" << window()->windowClass() << "maximized" << isMaximized()
+                              << "edges" << edges << "(L1 T2 R4 B8)" << "width" << window()->width();
+        }
+    }
     const qreal height = titleHeight();
     const qreal width = window()->width();
 

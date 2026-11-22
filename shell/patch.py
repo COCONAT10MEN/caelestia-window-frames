@@ -9,13 +9,8 @@ that row is fully drawn. Nothing else changes: the rounded corners, the
 shadow and the blur stay as they are, and on the empty desktop half a pixel
 is not visible.
 
-It also draws the frame's shadow on its own layer, masked off windows: the
-shadow falls on the wallpaper exactly as before, but no longer darkens the
-top of a window that touches the frame (which read as a dark band laid over
-its titlebar).
-
-The plugin API has no hook for the frame, so this makes a few clearly marked
-edits to modules/drawers/ContentWindow.qml. It is idempotent: the plugin runs
+The plugin API has no hook for the frame, so this makes one clearly marked
+edit to modules/drawers/ContentWindow.qml. It is idempotent: the plugin runs
 it on every shell start, so a Caelestia update that replaces the file simply
 gets patched again.
 
@@ -30,7 +25,7 @@ import re
 import sys
 import tempfile
 
-VERSION = "4"
+VERSION = "5"
 TAG = "caelestia-window-frames"
 BEGIN = f"// {TAG}:begin v{VERSION}"
 END = f"// {TAG}:end"
@@ -41,89 +36,7 @@ BLOCK_RE = re.compile(
 )
 
 # Inserted next to an anchor that must appear exactly once: (anchor, "before" | "after", body).
-INSERTIONS = [
-    (
-        "    Item {\n        id: layoutContainer\n",
-        "before",
-        """    // The frame's shadow on its own layer, under the frame: the frame's
-    // own shadow effect (same blur, same strength), masked by the frame and
-    // by every window, so it falls on the wallpaper only. The built-in one is
-    // turned off below.
-    readonly property var wfShadowWindows: (Kwin.activeWsId, Kwin.windowList.filter(w => root.wfCastsOnWindow(w)))
-    function wfCastsOnWindow(w: var): bool {
-        if (!w || w.minimized === true || !(w.width > 0) || !(w.height > 0))
-            return false;
-        const name = root.screen?.name ?? "";
-        if (name && w.output && w.output !== name)
-            return false;
-        const ws = w.workspace?.id ?? -1;
-        const active = Kwin.activeWorkspaceFor(name);
-        return ws <= 0 || active <= 0 || ws === active;
-    }
-    Item {
-        id: wfShadow
-
-        anchors.fill: parent
-        opacity: layoutContainer.opacity
-        visible: root.shadowOpacity > 0
-
-        ShaderEffectSource {
-            id: wfShadowShape
-
-            anchors.fill: parent
-            sourceItem: layoutContainer
-            hideSource: false
-            visible: false
-        }
-        Item {
-            id: wfShadowMask
-
-            anchors.fill: parent
-            visible: false
-            layer.enabled: true
-
-            ShaderEffectSource {
-                anchors.fill: parent
-                sourceItem: layoutContainer
-                hideSource: false
-            }
-            Repeater {
-                model: root.wfShadowWindows
-
-                Rectangle {
-                    required property var modelData
-
-                    x: modelData.x - (root.screen?.x ?? 0)
-                    y: modelData.y - (root.screen?.y ?? 0)
-                    width: modelData.width
-                    height: modelData.height
-                    color: "white"
-                }
-            }
-        }
-        MultiEffect {
-            anchors.fill: parent
-            source: wfShadowShape
-            // The source already covers the whole screen; padding would also
-            // stretch the mask out of line.
-            autoPaddingEnabled: false
-            shadowEnabled: true
-            blurMax: 15
-            shadowColor: Qt.alpha(Colours.palette.m3shadow, Math.max(0, root.shadowOpacity))
-            maskEnabled: true
-            maskInverted: true
-            maskSource: wfShadowMask
-            // Shown = 1 - smoothstep(0, 1, mask alpha): full on the wallpaper,
-            // none under the frame or a window, smooth along their edges.
-            maskThresholdMin: 0.5
-            maskSpreadAtMin: 1.0
-            maskThresholdMax: 1.0
-            maskSpreadAtMax: 1.0
-        }
-    }
-""",
-    ),
-]
+INSERTIONS = []
 
 # Whole-line edits: (original line, new line, how many lines match), compared
 # without indentation. A changed line keeps its original in a trailing marker
@@ -132,8 +45,6 @@ LINE_EDITS = [
     # Pull the frame's inner edge half a pixel over the windows.
     ("readonly property real sdfBorderOffset: 2 * fsTransitionProg",
      "readonly property real sdfBorderOffset: 2 * fsTransitionProg - 0.5", 1),
-    # The frame's built-in shadow: replaced by the masked layer above.
-    ("shadowEnabled: true", "shadowEnabled: false", 1),
 ]
 WAS_RE = re.compile(r"^([ \t]*).*/\*" + re.escape(TAG) + r" was: (.*)\*/[ \t]*$", re.M)
 # Lines written by earlier versions, which did not keep the original.
@@ -209,7 +120,8 @@ def main() -> int:
     clean = strip(text)
 
     if action == "status":
-        print("APPLIED" if BEGIN in text else ("OUTDATED" if has_any(text) else "MISSING"))
+        current = all(f"{TAG} was: {orig}" in text for orig, _, _ in LINE_EDITS) and BLOCK_RE.search(text) is None
+        print("APPLIED" if current else ("OUTDATED" if has_any(text) else "MISSING"))
         return 0
 
     if action == "revert":

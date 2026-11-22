@@ -215,4 +215,37 @@ qreal Theme::frameAppShare(qreal distance, bool barSide)
     return Open - dip * std::exp(-std::max<qreal>(0, distance) / Falloff);
 }
 
+QColor Theme::underFrame(const QColor &target, qreal coverage) const
+{
+    const QColor frame = frameColour();
+    const qreal fa = frame.alphaF() * std::clamp(coverage, 0.0, 1.0);
+    if (fa <= 0)
+        return target;
+    if (fa >= 1)
+        return QColor(0, 0, 0, 0); // fully hidden under a solid frame
+    // Frame over pixel P:  fa * frame + (1 - fa) * P  should equal target T.
+    // In premultiplied terms: P = (T - fa * frame) / (1 - fa), alpha alike.
+    const qreal ta = target.alphaF();
+    const qreal alpha = std::clamp(1 - (1 - ta) / (1 - fa), 0.0, 1.0);
+    if (alpha <= 0)
+        return QColor(0, 0, 0, 0);
+    const auto channel = [&](qreal t, qreal f) {
+        const qreal premul = (ta * t - fa * f) / (1 - fa);
+        return std::clamp(premul / alpha, 0.0, 1.0);
+    };
+    return QColor::fromRgbF(channel(target.redF(), frame.redF()), channel(target.greenF(), frame.greenF()),
+                            channel(target.blueF(), frame.blueF()), alpha);
+}
+
+qreal Theme::frameCornerCoverage(qreal distance) const
+{
+    // Caelestia's blob shader: alpha = 1 - smoothstep(-w, w, d), d measured
+    // into the hole. On screen the curve sits ~0.1px inside the configured
+    // radius and its soft edge is ~1.3px either side.
+    const qreal edge = frameCornerRadius() - 0.1;
+    const qreal w = 1.3;
+    const qreal t = std::clamp((edge - distance + w) / (2 * w), 0.0, 1.0);
+    return 1 - t * t * (3 - 2 * t);
+}
+
 }

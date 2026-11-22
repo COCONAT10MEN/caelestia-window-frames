@@ -39,7 +39,12 @@ public:
     /// The titlebar fill: titleBarColour(), or where the titlebar meets
     /// Caelestia's frame, the frame's look over this app (see Theme).
     QBrush titleBarBrush() const;
+    QColor titleBarColourAt(qreal x) const;
     bool touchesFrame() const;
+    bool inFrameCorner(Qt::Edge side) const;
+    QPointF frameCornerCentre(Qt::Edge side) const;
+    QPainterPath frameCornerOutside(Qt::Edge side) const;
+    void paintFrameCorners(QPainter *painter) const;
     /// Caption and icon colour.
     QColor foregroundColour() const;
 

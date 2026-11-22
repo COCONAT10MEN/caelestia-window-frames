@@ -14,7 +14,9 @@
 #include <QHoverEvent>
 #include <QMouseEvent>
 #include <QLinearGradient>
+#include <QRadialGradient>
 #include <QPainter>
+#include <QtMath>
 #include <QPainterPath>
 
 #include <algorithm>
@@ -101,25 +103,47 @@ qreal Decoration::cornerRadius() const
 
 KDecoration3::BorderRadius Decoration::corners() const
 {
-    // A corner sitting in a corner of the screen meets Caelestia's frame,
-    // whose inner corners are rounded: take exactly that curve, so the frame
-    // never lies over the titlebar there (it would tint it twice). Corners
-    // along one screen edge stay square so tiles fit together; free corners
-    // get the usual rounding.
+    // Square where the window meets a screen edge (tiles fit together, and
+    // corners sitting in a corner of the screen lie under Caelestia's frame:
+    // the titlebar shapes its own top ones to it, see frameCornerPath()).
+    // Free corners get the usual rounding.
     const qreal free = isMaximized() ? 0 : cornerRadius();
-    const qreal frame = m_theme->frameCornerRadius();
-    const Qt::Edges e = isMaximized() ? Qt::Edges(Qt::TopEdge | Qt::BottomEdge | Qt::LeftEdge | Qt::RightEdge) : window()->adjacentScreenEdges();
+    const Qt::Edges e = window()->adjacentScreenEdges();
     const auto round = [&](Qt::Edge a, Qt::Edge b) {
-        const bool onA = e & a;
-        const bool onB = e & b;
-        if (onA && onB)
-            return frame;
-        return onA || onB ? 0.0 : free;
+        return isMaximized() || (e & a) || (e & b) ? 0.0 : free;
     };
     return KDecoration3::BorderRadius(round(Qt::TopEdge, Qt::LeftEdge),
                                       round(Qt::TopEdge, Qt::RightEdge),
                                       round(Qt::BottomEdge, Qt::RightEdge),
                                       round(Qt::BottomEdge, Qt::LeftEdge));
+}
+
+bool Decoration::inFrameCorner(Qt::Edge side) const
+{
+    // A top corner sitting in a corner of the screen, under the frame's curve.
+    if (m_theme->frameCornerRadius() <= 0 || !isTranslucent())
+        return false;
+    const Qt::Edges e = window()->adjacentScreenEdges();
+    return isMaximized() || ((e & Qt::TopEdge) && (e & side));
+}
+
+QPointF Decoration::frameCornerCentre(Qt::Edge side) const
+{
+    const qreal r = m_theme->frameCornerRadius();
+    return side == Qt::LeftEdge ? QPointF(r, r) : QPointF(window()->width() - r, r);
+}
+
+QPainterPath Decoration::frameCornerOutside(Qt::Edge side) const
+{
+    // The part of the corner square that is plain, blurred frame: past the
+    // curve and past the unblurred band along it. Nothing of ours goes there.
+    const qreal r = m_theme->frameCornerRadius();
+    const QPointF c = frameCornerCentre(side);
+    QPainterPath square;
+    square.addRect(side == Qt::LeftEdge ? QRectF(0, 0, r, r) : QRectF(c.x(), 0, r, r));
+    QPainterPath disk;
+    disk.addEllipse(c, r + Theme::FrameCornerBand, r + Theme::FrameCornerBand);
+    return square.subtracted(disk);
 }
 
 bool Decoration::isMaximized() const
@@ -140,43 +164,92 @@ bool Decoration::touchesFrame() const
     return isMaximized() || (window()->adjacentScreenEdges() & Qt::TopEdge);
 }
 
-QBrush Decoration::titleBarBrush() const
+QColor Decoration::titleBarColourAt(qreal x) const
 {
     if (!touchesFrame() || !isTranslucent())
         return titleBarColour();
 
     // Mirror what Caelestia's blur does to the frame right above: blend in
     // the app's own background, by how much the frame's blur takes it in at
-    // each point along the top (less towards the bar).
+    // this point along the top (less towards the bar).
     const QColor app = window()->palette().color(QPalette::Active, QPalette::Window);
     const Qt::Edges edges = isMaximized() ? Qt::Edges(Qt::LeftEdge | Qt::RightEdge | Qt::TopEdge) : window()->adjacentScreenEdges();
     const Qt::Edge bar = m_theme->barEdge();
-    const qreal width = window()->width();
     if (bar == Qt::TopEdge)
         return m_theme->frameColourWithApp(app, Theme::frameAppShare(0, true));
 
-    const auto shareAt = [&](qreal x) {
-        qreal share = Theme::frameAppShare(1e6, false);
-        const auto dent = [&](qreal distance, bool barSide) {
-            share -= Theme::frameAppShare(1e6, false) - Theme::frameAppShare(distance, barSide);
-        };
-        if (edges & Qt::LeftEdge)
-            dent(x, bar == Qt::LeftEdge);
-        if (edges & Qt::RightEdge)
-            dent(width - x, bar == Qt::RightEdge);
-        return share;
+    qreal share = Theme::frameAppShare(1e6, false);
+    const auto dent = [&](qreal distance, bool barSide) {
+        share -= Theme::frameAppShare(1e6, false) - Theme::frameAppShare(distance, barSide);
     };
+    if (edges & Qt::LeftEdge)
+        dent(x, bar == Qt::LeftEdge);
+    if (edges & Qt::RightEdge)
+        dent(window()->width() - x, bar == Qt::RightEdge);
+    return m_theme->frameColourWithApp(app, share);
+}
 
+QBrush Decoration::titleBarBrush() const
+{
+    if (!touchesFrame() || !isTranslucent())
+        return titleBarColour();
+
+    const qreal width = window()->width();
     QLinearGradient gradient(0, 0, width, 0);
     // Dense near the ends where it changes, one stop in the open middle.
     for (qreal d : {0.0, 8.0, 16.0, 32.0, 48.0, 64.0, 96.0, 128.0, 176.0, 240.0, 320.0, 420.0}) {
         if (d > width / 2)
             break;
-        gradient.setColorAt(d / width, m_theme->frameColourWithApp(app, shareAt(d)));
-        gradient.setColorAt(1 - d / width, m_theme->frameColourWithApp(app, shareAt(width - d)));
+        gradient.setColorAt(d / width, titleBarColourAt(d));
+        gradient.setColorAt(1 - d / width, titleBarColourAt(width - d));
     }
-    gradient.setColorAt(0.5, m_theme->frameColourWithApp(app, shareAt(width / 2)));
+    gradient.setColorAt(0.5, titleBarColourAt(width / 2));
     return gradient;
+}
+
+void Decoration::paintFrameCorners(QPainter *painter) const
+{
+    // Under the frame's curve: across its soft edge and its unblurred band,
+    // hold exactly what makes "frame over us" look like the titlebar next to
+    // it, so no line of wallpaper or double tint shows. Done in thin wedges,
+    // each from the titlebar colour at that spot, so it meets the rest of
+    // the titlebar without a step.
+    const qreal r = m_theme->frameCornerRadius();
+    const qreal inner = std::max<qreal>(0, r - 2);
+    const qreal outer = r + Theme::FrameCornerBand;
+    constexpr int Wedges = 8;
+    for (Qt::Edge side : {Qt::LeftEdge, Qt::RightEdge}) {
+        if (!inFrameCorner(side))
+            continue;
+        const QPointF c = frameCornerCentre(side);
+        QPainterPath square;
+        square.addRect(side == Qt::LeftEdge ? QRectF(0, 0, r, r) : QRectF(c.x(), 0, r, r));
+        QPainterPath ring;
+        ring.addEllipse(c, outer, outer);
+        QPainterPath hole;
+        hole.addEllipse(c, inner, inner);
+        const QPainterPath area = square.intersected(ring.subtracted(hole));
+
+        // Qt angles: 0 = right, 90 = up. Left corner faces 90..180, right 0..90.
+        const qreal start = side == Qt::LeftEdge ? 90 : 0;
+        for (int i = 0; i < Wedges; ++i) {
+            const qreal a0 = start + 90.0 * i / Wedges;
+            const qreal sweep = 90.0 / Wedges;
+            const qreal mid = qDegreesToRadians(a0 + sweep / 2);
+            const QColor target = titleBarColourAt(c.x() + std::cos(mid) * r);
+
+            QPainterPath wedge;
+            wedge.moveTo(c);
+            wedge.arcTo(QRectF(c.x() - outer - 1, c.y() - outer - 1, (outer + 1) * 2, (outer + 1) * 2), a0, sweep);
+            wedge.closeSubpath();
+
+            QRadialGradient gradient(c, outer);
+            gradient.setColorAt(0, target);
+            for (qreal d = inner; d <= outer + 0.001; d += 0.25)
+                gradient.setColorAt(std::min<qreal>(1, d / outer), m_theme->underFrame(target, m_theme->frameCornerCoverage(d)));
+            painter->fillPath(area.intersected(wedge), gradient);
+        }
+    }
 }
 
 QColor Decoration::outlineColour() const
@@ -209,6 +282,10 @@ QPainterPath Decoration::titleBarPath() const
         path.arcTo(QRectF(bar.right() - tr * 2, bar.top(), tr * 2, tr * 2), 90, -90);
     path.lineTo(bar.right(), bar.bottom());
     path.closeSubpath();
+    for (Qt::Edge side : {Qt::LeftEdge, Qt::RightEdge}) {
+        if (inFrameCorner(side))
+            path = path.subtracted(frameCornerOutside(side));
+    }
     return path;
 }
 
@@ -283,9 +360,8 @@ void Decoration::updateButtonsGeometry()
     const qreal height = titleHeight();
     // Where a top corner follows the frame's curve, keep the buttons (even
     // pressed, as rounded squares) clear of it.
-    const KDecoration3::BorderRadius c = corners();
-    const qreal left = PaddingSmall + (c.topLeft() > cornerRadius() ? 4 : 0);
-    const qreal right = PaddingSmall + (c.topRight() > cornerRadius() ? 4 : 0);
+    const qreal left = PaddingSmall + (inFrameCorner(Qt::LeftEdge) ? 4 : 0);
+    const qreal right = PaddingSmall + (inFrameCorner(Qt::RightEdge) ? 4 : 0);
     const qreal top = (height - size) / 2;
     m_leftButtons->setPos(QPointF(left, top));
     m_rightButtons->setPos(QPointF(window()->width() - right - m_rightButtons->geometry().width(), top));
@@ -323,6 +399,7 @@ void Decoration::paint(QPainter *painter, const QRectF &repaintArea)
     // alpha is exactly Caelestia's and does not stack.
     painter->setCompositionMode(QPainter::CompositionMode_Source);
     painter->fillPath(titleBarPath(), titleBarBrush());
+    paintFrameCorners(painter);
     painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
 
     // App icon (the left buttons), then the caption and its chevron.

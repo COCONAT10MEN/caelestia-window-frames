@@ -62,6 +62,16 @@ public:
     /// The radius of the frame's inner corners (border.rounding), or 0 when
     /// Caelestia draws no frame ("islands" mode).
     qreal frameCornerRadius() const { return m_islands ? 0 : m_frameRounding; }
+    /// What a titlebar pixel must hold so that Caelestia's frame, drawn over
+    /// it with `coverage` (0..1), comes out the way `target` looks on its own.
+    /// Used under the frame's soft inner edge and its unblurred corner band.
+    QColor underFrame(const QColor &target, qreal coverage) const;
+    /// Width of the band along the frame's inner corner curve where Caelestia
+    /// turns its blur off (its BlurCorners: rounding + 2, as stepped regions).
+    static constexpr qreal FrameCornerBand = 2.5;
+    /// How much of a pixel the frame's inner corner covers, `distance` px
+    /// from the curve's centre (fitted to Caelestia 2.7.5 on screen).
+    qreal frameCornerCoverage(qreal distance) const;
     /// Which screen edge Caelestia's bar is on.
     Qt::Edge barEdge() const { return m_barEdge; }
 

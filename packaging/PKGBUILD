@@ -3,7 +3,7 @@
 # Built from the repository this file sits in (no download). Use ../rebuild.sh.
 
 pkgname=caelestia-window-frames
-pkgver=1.0.0
+pkgver=1.0.1
 pkgrel=1
 pkgdesc="KWin window decoration that matches Caelestia KDE: its Material You colours, transparency, blur and motion"
 arch=('x86_64')

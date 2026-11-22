@@ -283,4 +283,14 @@ QPainterPath Theme::frameCornerUnblurred() const
     return area.simplified();
 }
 
+qreal Theme::frameEdgeCoverage() const
+{
+    // The first pixel's centre is 0.5px into the window; the edge sits
+    // ~0.05px inside, and is soft ~1.6px either side (see frameCornerCoverage).
+    const qreal d = 0.5 - 0.05;
+    const qreal w = 1.6;
+    const qreal t = std::clamp((d + w) / (2 * w), 0.0, 1.0);
+    return 1 - t * t * (3 - 2 * t);
+}
+
 }

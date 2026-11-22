@@ -46,6 +46,7 @@ public:
     QPainterPath frameCornerOutside(Qt::Edge side) const;
     QPainterPath frameCornerReach(Qt::Edge side) const;
     void paintFrameCorners(QPainter *painter) const;
+    void paintFrameEdges(QPainter *painter) const;
     /// Caption and icon colour.
     QColor foregroundColour() const;
 

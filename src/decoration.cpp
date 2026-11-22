@@ -265,6 +265,48 @@ void Decoration::paintFrameCorners(QPainter *painter) const
     }
 }
 
+void Decoration::paintFrameEdges(QPainter *painter) const
+{
+    // The frame's soft straight edge also lies over the titlebar's outermost
+    // pixel row (and column, where it meets the bar or the side border),
+    // tinting it twice. Hold there what makes "frame over it" look like the
+    // titlebar next to it.
+    if (!touchesFrame() || !isTranslucent())
+        return;
+    const qreal coverage = m_theme->frameEdgeCoverage();
+    const qreal width = window()->width();
+    const qreal height = titleHeight();
+    const qreal r = m_theme->frameCornerRadius();
+    const KDecoration3::BorderRadius c = corners();
+    const Qt::Edges edges = isMaximized() ? Qt::Edges(Qt::LeftEdge | Qt::RightEdge | Qt::TopEdge) : window()->adjacentScreenEdges();
+    const qreal left = inFrameCorner(Qt::LeftEdge) ? r : c.topLeft();
+    const qreal right = inFrameCorner(Qt::RightEdge) ? r : c.topRight();
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, false);
+    painter->setCompositionMode(QPainter::CompositionMode_Source);
+    if ((edges & Qt::TopEdge) && width - left - right > 0) {
+        QLinearGradient row(left, 0, width - right, 0);
+        const int stops = 24;
+        for (int i = 0; i <= stops; ++i) {
+            const qreal x = left + (width - left - right) * i / stops;
+            row.setColorAt(qreal(i) / stops, m_theme->underFrame(titleBarColourAt(x), coverage));
+        }
+        painter->fillRect(QRectF(left, 0, width - left - right, 1), row);
+    }
+    if (edges & Qt::LeftEdge) {
+        const qreal top = (edges & Qt::TopEdge) ? (inFrameCorner(Qt::LeftEdge) ? r : 1) : 0;
+        if (height > top)
+            painter->fillRect(QRectF(0, top, 1, height - top), m_theme->underFrame(titleBarColourAt(0.5), coverage));
+    }
+    if (edges & Qt::RightEdge) {
+        const qreal top = (edges & Qt::TopEdge) ? (inFrameCorner(Qt::RightEdge) ? r : 1) : 0;
+        if (height > top)
+            painter->fillRect(QRectF(width - 1, top, 1, height - top), m_theme->underFrame(titleBarColourAt(width - 0.5), coverage));
+    }
+    painter->restore();
+}
+
 QColor Decoration::outlineColour() const
 {
     QColor c = m_theme->colour(QStringLiteral("outlineVariant"));
@@ -413,6 +455,7 @@ void Decoration::paint(QPainter *painter, const QRectF &repaintArea)
     painter->setCompositionMode(QPainter::CompositionMode_Source);
     painter->fillPath(titleBarPath(), titleBarBrush());
     paintFrameCorners(painter);
+    paintFrameEdges(painter);
     painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
 
     // App icon (the left buttons), then the caption and its chevron.

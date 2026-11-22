@@ -79,6 +79,9 @@ public:
     /// How much of a pixel the frame's inner corner covers, `distance` px
     /// from the curve's centre (fitted to Caelestia 2.7.5 on screen).
     qreal frameCornerCoverage(qreal distance) const;
+    /// How much the frame's soft straight edge covers the window's outermost
+    /// pixel row/column (same fitted profile as the curve).
+    qreal frameEdgeCoverage() const;
     /// Which screen edge Caelestia's bar is on.
     Qt::Edge barEdge() const { return m_barEdge; }
 

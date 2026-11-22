@@ -3,5 +3,5 @@ Type=Application
 Name=Install Caelestia Window Frames
 Comment=Builds and installs the Caelestia window decoration, then asks to log out
 Icon=preferences-desktop-theme-windowdecorations
-Exec=sh -c "cd \\"\\$(dirname \\"\\$1\\")\\" && ./install.sh --from-launcher" sh %k
-Terminal=true
+Exec=sh -c "cd \\"\\$(dirname \\"\\$1\\")\\" && ./launch.sh install" sh %k
+Terminal=false

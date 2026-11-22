@@ -182,7 +182,7 @@ shell/                the shell part (Caelestia plugin: patch.py, main.qml)
 metadata.json         Caelestia plugin manifest for the shell part
 packaging/PKGBUILD    local pacman package, built from this folder
 install.sh            build, install and select the decoration, install the shell part
-Install … .desktop    double-click launchers for install.sh / uninstall.sh
+Install … .desktop    double-click launchers (open install.sh / uninstall.sh in a terminal via launch.sh)
 rebuild.sh            build and reinstall the decoration (after Plasma updates)
 uninstall.sh          remove both and switch back to Breeze
 assets/               README artwork

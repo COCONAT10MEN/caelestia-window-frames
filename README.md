@@ -6,7 +6,7 @@
 
 [![Caelestia KDE](https://img.shields.io/badge/Caelestia_KDE-2.7.5_tested-9bd0cc?style=for-the-badge&labelColor=101418)](https://github.com/caelestia-kde/caelestia)
 [![KDE Plasma](https://img.shields.io/badge/Plasma_6.8-1D99F3?logo=kde&logoColor=white&style=for-the-badge&labelColor=101418)](https://kde.org/plasma-desktop)
-[![Version](https://img.shields.io/badge/Version-1.1.0-9bd0cc?style=for-the-badge&labelColor=101418)](CMakeLists.txt)
+[![Version](https://img.shields.io/badge/Version-1.2.0-9bd0cc?style=for-the-badge&labelColor=101418)](CMakeLists.txt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-9bd0cc?style=for-the-badge&labelColor=101418)](LICENSE)
 
 </div>
@@ -32,7 +32,8 @@ instead of a separate theme with its own opacity settings.
   against the top), it takes in the app's own colour the way the frame's blur does, so the two
   read as one surface. At the frame's rounded corners the titlebar runs under the curve and
   blends with it, and a small shell part lines the frame's edge up with the window to the
-  pixel, so no thin line of wallpaper shows between them.
+  pixel, so no thin line of wallpaper shows between them. The frame's shadow still falls on
+  the wallpaper, but no longer darkens the top of a window that touches the frame.
 - **Material 3 Expressive buttons.** Thin, pixel-sharp minimize, maximize/restore and close.
   Round at rest; on hover a state layer fades in, on press a ripple spreads and the shape
   morphs to a rounded square. Close turns the theme's error colour. KDE's button order
@@ -137,10 +138,14 @@ rounding scale, animation speed, bar position) and KDE's button order and title 
 - `shell/` is the shell part, a Caelestia plugin. Caelestia's plugin API has no hook for the
   screen frame, so on every shell start it makes one clearly marked edit to
   `modules/drawers/ContentWindow.qml`: the frame's inner edge moves half a pixel over the
-  windows (`2 * fsTransitionProg` → `2 * fsTransitionProg - 0.5 /*caelestia-window-frames*/`).
-  The frame's soft edge then fully covers its own last pixel row instead of letting a line of
-  wallpaper through next to a window. Rounded corners, shadow and blur are untouched; on the
-  empty desktop half a pixel is not visible. After a Caelestia update it patches again and
+  windows, so the frame's soft edge fully covers its own last pixel row instead of letting a
+  line of wallpaper through next to a window (on the empty desktop half a pixel is not
+  visible). And it draws the frame's shadow on its own layer, with the frame's own shadow
+  effect (same blur, same strength) masked by the frame and by every window, so it falls on
+  the wallpaper exactly as before but never on a window. Rounded corners and blur are
+  untouched. Every changed line keeps its original in a marker comment
+  (`/*caelestia-window-frames was: …*/`) and inserted code sits between
+  `// caelestia-window-frames:begin` and `:end`, so any version can undo it. After a Caelestia update it patches again and
   restarts the shell once; if Caelestia changed that line, it touches nothing and shows a
   notification. While it runs it leaves `~/.local/state/caelestia/window-frames-edge`, so the
   decoration matches its edge pixels to the new overlap.

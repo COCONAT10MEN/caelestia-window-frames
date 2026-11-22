@@ -6,7 +6,7 @@
 
 [![Caelestia KDE](https://img.shields.io/badge/Caelestia_KDE-2.7.5_tested-9bd0cc?style=for-the-badge&labelColor=101418)](https://github.com/caelestia-kde/caelestia)
 [![KDE Plasma](https://img.shields.io/badge/Plasma_6.8-1D99F3?logo=kde&logoColor=white&style=for-the-badge&labelColor=101418)](https://kde.org/plasma-desktop)
-[![Version](https://img.shields.io/badge/Version-1.0.3-9bd0cc?style=for-the-badge&labelColor=101418)](CMakeLists.txt)
+[![Version](https://img.shields.io/badge/Version-1.1.0-9bd0cc?style=for-the-badge&labelColor=101418)](CMakeLists.txt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-9bd0cc?style=for-the-badge&labelColor=101418)](LICENSE)
 
 </div>
@@ -30,8 +30,9 @@ instead of a separate theme with its own opacity settings.
   solid; "pitch black" makes them black.
 - **Meets the screen frame.** Where a titlebar touches Caelestia's frame (maximized, or tiled
   against the top), it takes in the app's own colour the way the frame's blur does, so the two
-  read as one surface. Corners that sit in a corner of the screen follow the frame's curve
-  instead of poking under it.
+  read as one surface. At the frame's rounded corners the titlebar runs under the curve and
+  blends with it, and a small shell part lines the frame's edge up with the window to the
+  pixel, so no thin line of wallpaper shows between them.
 - **Material 3 Expressive buttons.** Thin, pixel-sharp minimize, maximize/restore and close.
   Round at rest; on hover a state layer fades in, on press a ripple spreads and the shape
   morphs to a rounded square. Close turns the theme's error colour. KDE's button order
@@ -54,8 +55,12 @@ cd caelestia-window-frames
 ./install.sh
 ```
 
-`install.sh` builds a local pacman package, installs it and selects the decoration. Log out
-and back in: KWin only loads a new decoration build at login.
+`install.sh` builds a local pacman package, installs and selects the decoration, and puts its
+small shell part into Caelestia's plugins (`~/.config/caelestia/plugins/caelestia-window-frames`).
+Log out and back in: KWin only loads a new decoration build at login.
+
+The repository is also a Caelestia plugin: installing it from *Settings → Plugins* with the URL
+above adds the shell part only. Run `./install.sh` from that folder for the decoration itself.
 
 You can also pick it by hand in *System Settings → Colors & Themes → Window Decorations →
 Caelestia*.
@@ -65,7 +70,7 @@ Caelestia*.
 ```bash
 cd caelestia-window-frames
 git pull
-./rebuild.sh
+./install.sh
 ```
 
 Then log out and back in.
@@ -93,11 +98,13 @@ qdbus6 org.kde.KWin /KWin reconfigure
 
 ### Uninstalling
 
-Switch to another decoration first (above), then:
-
 ```bash
-sudo pacman -R caelestia-window-frames
+cd caelestia-window-frames
+./uninstall.sh
 ```
+
+It switches back to Breeze, undoes the shell part's one-line change to Caelestia, removes the
+plugin folder and the package. Then log out and back in.
 
 ## Configuring
 
@@ -111,6 +118,8 @@ rounding scale, animation speed, bar position) and KDE's button order and title 
 | Windows show KDE's default frames after an update | Run `./rebuild.sh`, then log out and back in |
 | A change to the decoration does not show | KWin keeps the decoration it loaded at login: log out and back in |
 | Icons look wrong | Make sure `ttf-material-symbols-variable` is installed |
+| "Could not patch the screen frame's edge" notification | Caelestia changed the line the shell part edits; nothing was touched. Check for an update of this repository |
+| Check the shell part | `python3 ~/.config/caelestia/plugins/caelestia-window-frames/shell/patch.py status ~/.config/quickshell/caelestia` |
 
 ## How it works
 
@@ -125,6 +134,16 @@ rounding scale, animation speed, bar position) and KDE's button order and title 
   next to the bar.
 - `src/button.cpp`, `src/statelayer.cpp` and `src/icons.cpp` draw the buttons, their state
   layers and the stroke icons; `src/motion.cpp` holds Caelestia's motion tokens.
+- `shell/` is the shell part, a Caelestia plugin. Caelestia's plugin API has no hook for the
+  screen frame, so on every shell start it makes one clearly marked edit to
+  `modules/drawers/ContentWindow.qml`: the frame's inner edge moves half a pixel over the
+  windows (`2 * fsTransitionProg` → `2 * fsTransitionProg - 0.5 /*caelestia-window-frames*/`).
+  The frame's soft edge then fully covers its own last pixel row instead of letting a line of
+  wallpaper through next to a window. Rounded corners, shadow and blur are untouched; on the
+  empty desktop half a pixel is not visible. After a Caelestia update it patches again and
+  restarts the shell once; if Caelestia changed that line, it touches nothing and shows a
+  notification. While it runs it leaves `~/.local/state/caelestia/window-frames-edge`, so the
+  decoration matches its edge pixels to the new overlap.
 - Nothing runs while nothing changes: animations only tick while one is playing, and files
   are only read again when they change.
 
@@ -132,9 +151,12 @@ rounding scale, animation speed, bar position) and KDE's button order and title 
 
 ```
 src/                  the decoration (C++, KDecoration3)
+shell/                the shell part (Caelestia plugin: patch.py, main.qml)
+metadata.json         Caelestia plugin manifest for the shell part
 packaging/PKGBUILD    local pacman package, built from this folder
-install.sh            build, install and select the decoration
-rebuild.sh            build and reinstall (after updates)
+install.sh            build, install and select the decoration, install the shell part
+rebuild.sh            build and reinstall the decoration (after Plasma updates)
+uninstall.sh          remove both and switch back to Breeze
 assets/               README artwork
 ```
 

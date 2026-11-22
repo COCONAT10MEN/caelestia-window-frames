@@ -62,6 +62,7 @@ std::shared_ptr<Theme> Theme::instance()
 Theme::Theme()
     : m_schemePath(stateHome() + QStringLiteral("/caelestia/scheme.json"))
     , m_shellPath(configHome() + QStringLiteral("/caelestia/shell.json"))
+    , m_edgeFlagPath(stateHome() + QStringLiteral("/caelestia/window-frames-edge"))
 {
     // Editors and the shell often write a new file and rename it over the
     // old one, which only shows up as a change of the folder: watch both
@@ -74,6 +75,7 @@ Theme::Theme()
 
     loadScheme();
     loadShell();
+    m_edgeShifted = QFileInfo::exists(m_edgeFlagPath);
     watch();
 }
 
@@ -97,12 +99,15 @@ void Theme::reload()
     const qint64 shell = stampOf(m_shellPath);
     const bool schemeChanged = scheme != m_schemeStamp;
     const bool shellChanged = shell != m_shellStamp;
+    const bool edgeShifted = QFileInfo::exists(m_edgeFlagPath);
+    const bool edgeChanged = edgeShifted != m_edgeShifted;
+    m_edgeShifted = edgeShifted;
     if (schemeChanged)
         loadScheme();
     if (shellChanged)
         loadShell();
     watch(); // a replaced file is a new file to the watcher
-    if (schemeChanged || shellChanged)
+    if (schemeChanged || shellChanged || edgeChanged)
         Q_EMIT changed();
 }
 
@@ -254,7 +259,7 @@ qreal Theme::frameCornerCoverage(qreal distance) const
     // Caelestia's blob shader: alpha = 1 - smoothstep(-w, w, d), d measured
     // into the hole. Fitted on screen: the curve sits ~0.05px inside the
     // configured radius and its soft edge reaches ~1.6px either side.
-    const qreal edge = frameCornerRadius() - 0.05;
+    const qreal edge = frameCornerRadius() - 0.05 - frameEdgeShift();
     const qreal w = 1.6;
     const qreal t = std::clamp((edge - distance + w) / (2 * w), 0.0, 1.0);
     return 1 - t * t * (3 - 2 * t);
@@ -283,11 +288,11 @@ QPainterPath Theme::frameCornerUnblurred() const
     return area.simplified();
 }
 
-qreal Theme::frameEdgeCoverage() const
+qreal Theme::frameEdgeCoverage(int pixel) const
 {
     // The first pixel's centre is 0.5px into the window; the edge sits
     // ~0.05px inside, and is soft ~1.6px either side (see frameCornerCoverage).
-    const qreal d = 0.5 - 0.05;
+    const qreal d = pixel + 0.5 - 0.05 - frameEdgeShift();
     const qreal w = 1.6;
     const qreal t = std::clamp((d + w) / (2 * w), 0.0, 1.0);
     return 1 - t * t * (3 - 2 * t);

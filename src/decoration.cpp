@@ -268,12 +268,11 @@ void Decoration::paintFrameCorners(QPainter *painter) const
 void Decoration::paintFrameEdges(QPainter *painter) const
 {
     // The frame's soft straight edge also lies over the titlebar's outermost
-    // pixel row (and column, where it meets the bar or the side border),
-    // tinting it twice. Hold there what makes "frame over it" look like the
-    // titlebar next to it.
+    // pixel rows (and columns, where it meets the bar or the side border),
+    // tinting them twice. Hold there what makes "frame over it" look like
+    // the titlebar next to it.
     if (!touchesFrame() || !isTranslucent())
         return;
-    const qreal coverage = m_theme->frameEdgeCoverage();
     const qreal width = window()->width();
     const qreal height = titleHeight();
     const qreal r = m_theme->frameCornerRadius();
@@ -285,24 +284,30 @@ void Decoration::paintFrameEdges(QPainter *painter) const
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, false);
     painter->setCompositionMode(QPainter::CompositionMode_Source);
-    if ((edges & Qt::TopEdge) && width - left - right > 0) {
-        QLinearGradient row(left, 0, width - right, 0);
-        const int stops = 24;
-        for (int i = 0; i <= stops; ++i) {
-            const qreal x = left + (width - left - right) * i / stops;
-            row.setColorAt(qreal(i) / stops, m_theme->underFrame(titleBarColourAt(x), coverage));
+    for (int px = 0; px < 2; ++px) {
+        const qreal coverage = m_theme->frameEdgeCoverage(px);
+        if (coverage < 0.01)
+            continue;
+        if ((edges & Qt::TopEdge) && width - left - right > 0) {
+            QLinearGradient row(left, 0, width - right, 0);
+            const int stops = 24;
+            for (int i = 0; i <= stops; ++i) {
+                const qreal x = left + (width - left - right) * i / stops;
+                row.setColorAt(qreal(i) / stops, m_theme->underFrame(titleBarColourAt(x), coverage));
+            }
+            painter->fillRect(QRectF(left, px, width - left - right, 1), row);
         }
-        painter->fillRect(QRectF(left, 0, width - left - right, 1), row);
-    }
-    if (edges & Qt::LeftEdge) {
-        const qreal top = (edges & Qt::TopEdge) ? (inFrameCorner(Qt::LeftEdge) ? r : 1) : 0;
-        if (height > top)
-            painter->fillRect(QRectF(0, top, 1, height - top), m_theme->underFrame(titleBarColourAt(0.5), coverage));
-    }
-    if (edges & Qt::RightEdge) {
-        const qreal top = (edges & Qt::TopEdge) ? (inFrameCorner(Qt::RightEdge) ? r : 1) : 0;
-        if (height > top)
-            painter->fillRect(QRectF(width - 1, top, 1, height - top), m_theme->underFrame(titleBarColourAt(width - 0.5), coverage));
+        const qreal top = (edges & Qt::TopEdge) ? 2 : 0;
+        if ((edges & Qt::LeftEdge) && height > top) {
+            const qreal from = (edges & Qt::TopEdge) && inFrameCorner(Qt::LeftEdge) ? r : top;
+            if (height > from)
+                painter->fillRect(QRectF(px, from, 1, height - from), m_theme->underFrame(titleBarColourAt(px + 0.5), coverage));
+        }
+        if ((edges & Qt::RightEdge) && height > top) {
+            const qreal from = (edges & Qt::TopEdge) && inFrameCorner(Qt::RightEdge) ? r : top;
+            if (height > from)
+                painter->fillRect(QRectF(width - 1 - px, from, 1, height - from), m_theme->underFrame(titleBarColourAt(width - px - 0.5), coverage));
+        }
     }
     painter->restore();
 }

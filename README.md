@@ -28,12 +28,12 @@ instead of a separate theme with its own opacity settings.
   frame: `surface` at the shell's base transparency (0.1 lower in light mode), with KWin's
   blur behind it, the same blur the bar uses. Transparency off in Caelestia makes the frames
   solid; "pitch black" makes them black.
-- **Meets the screen frame.** Where a titlebar touches Caelestia's frame (maximized, or tiled
-  against the top), it takes in the app's own colour the way the frame's blur does, so the two
-  read as one surface. At the frame's rounded corners the titlebar runs under the curve and
-  blends with it, and a small shell part lines the frame's edge up with the window to the
-  pixel, so no thin line of wallpaper shows between them. The frame's shadow still falls on
-  the wallpaper, but no longer darkens the top of a window that touches the frame.
+- **One material, matching the frame.** Every titlebar takes in the app's own colour the way
+  Caelestia's frame blur does over a window, shaded lighter towards the bar exactly like the
+  frame, so a titlebar looks the same maximized, tiled, snug in a corner or floating, and reads
+  as one surface with the frame wherever it meets it. At the frame's rounded corners the
+  titlebar runs under the curve and blends with it, and a small shell part lines the frame's
+  edge up with the window to the pixel, so no thin line of wallpaper shows between them.
 - **Material 3 Expressive buttons.** Thin, pixel-sharp minimize, maximize/restore and close.
   Round at rest; on hover a state layer fades in, on press a ripple spreads and the shape
   morphs to a rounded square. Close turns the theme's error colour. KDE's button order
@@ -48,7 +48,8 @@ instead of a separate theme with its own opacity settings.
 
 **Requirements:** Arch-based system (CachyOS, Arch, EndeavourOS…), Plasma 6 on Wayland,
 Caelestia KDE (tested on 2.7.5). The build pulls in `cmake`, `extra-cmake-modules`,
-`kdecoration`, `kwin`, `qt6-base`, `kcoreaddons` and `ttf-material-symbols-variable`.
+`kdecoration`, `kwin` (with its development files), `qt6-base`, `kcoreaddons`,
+`vulkan-headers` and `ttf-material-symbols-variable`.
 
 ```bash
 git clone https://github.com/COCONAT10MEN/caelestia-window-frames
@@ -78,8 +79,9 @@ Then log out and back in.
 
 ### After a Plasma update
 
-A window decoration is built against one KWin version. When Plasma updates, KWin may fall
-back to its default frames until the decoration is rebuilt:
+A window decoration is built against one KWin version, and this one also reads each
+window's place on screen from KWin itself. When Plasma updates, KWin may fall back to its
+default frames until the decoration is rebuilt:
 
 ```bash
 cd caelestia-window-frames
@@ -129,10 +131,13 @@ rounding scale, animation speed, bar position) and KDE's button order and title 
   and watches both, so every window repaints when Caelestia changes them. One reader is
   shared by all windows.
 - `src/decoration.cpp` draws the titlebar, asks KWin to blur behind it, and sets the window's
-  corner shape and outline. Where a titlebar touches Caelestia's frame, it mixes in the app's
-  own background colour (from the window's palette) by the share Caelestia's blur takes in at
-  that point. Measured on Caelestia 2.7.5: about 69% along the top, easing to about a third
-  next to the bar.
+  corner shape and outline. It mixes in the app's own background colour (from the window's
+  palette) by the share Caelestia's blur takes in at that spot on screen. Measured on
+  Caelestia 2.7.5: about 69% along the top, easing to about a third next to the bar.
+- KWin on Plasma 6.8 does not tell decorations which screen edges a window touches, so the
+  decoration finds its window inside KWin (it links KWin's own library, `KWin::kwin`) and
+  follows its frame geometry and the work area inside Caelestia's frame and bar. That is how
+  it knows the distance to the bar and whether a window meets the frame, in any state.
 - `src/button.cpp`, `src/statelayer.cpp` and `src/icons.cpp` draw the buttons, their state
   layers and the stroke icons; `src/motion.cpp` holds Caelestia's motion tokens.
 - `shell/` is the shell part, a Caelestia plugin. Caelestia's plugin API has no hook for the
@@ -140,12 +145,9 @@ rounding scale, animation speed, bar position) and KDE's button order and title 
   `modules/drawers/ContentWindow.qml`: the frame's inner edge moves half a pixel over the
   windows, so the frame's soft edge fully covers its own last pixel row instead of letting a
   line of wallpaper through next to a window (on the empty desktop half a pixel is not
-  visible). And it draws the frame's shadow on its own layer, with the frame's own shadow
-  effect (same blur, same strength) masked by the frame and by every window, so it falls on
-  the wallpaper exactly as before but never on a window. Rounded corners and blur are
-  untouched. Every changed line keeps its original in a marker comment
-  (`/*caelestia-window-frames was: …*/`) and inserted code sits between
-  `// caelestia-window-frames:begin` and `:end`, so any version can undo it. After a Caelestia update it patches again and
+  visible). Rounded corners, shadow and blur are untouched. The changed line keeps its
+  original in a marker comment (`/*caelestia-window-frames was: …*/`), so any version of the
+  script can undo it. After a Caelestia update it patches again and
   restarts the shell once; if Caelestia changed that line, it touches nothing and shows a
   notification. While it runs it leaves `~/.local/state/caelestia/window-frames-edge`, so the
   decoration matches its edge pixels to the new overlap.

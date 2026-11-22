@@ -78,13 +78,16 @@ command -v notify-send >/dev/null && notify-send -a "Caelestia Window Frames" "I
 # Offer to log out: a KDE dialog when possible, else a question here.
 log_out() {
     # Runs on its own after this window has closed (a terminal still running
-    # this script could ask to confirm closing and cancel the log-out). It asks
-    # KDE to log out, checks that it really started, tries once more, and as a
-    # last resort opens KDE's own log-out dialog. Steps go to a log file.
+    # this script could ask to confirm closing and cancel the log-out). It is
+    # started as a separate user service: KDE runs a double-clicked launcher
+    # as a service of its own, and ends every process in it when the window
+    # closes. It asks KDE to log out, checks that it really started, tries once
+    # more, and as a last resort opens KDE's own log-out dialog. Steps go to a
+    # log file.
     local log="${XDG_CACHE_HOME:-$HOME/.cache}/caelestia-window-frames-logout.log"
     mkdir -p "$(dirname "$log")"
     printf 'Logging out...\n'
-    setsid bash -c '
+    local helper='
         log="$1"
         started() { [ "$(qdbus6 org.kde.ksmserver /KSMServer org.kde.KSMServerInterface.isShuttingDown 2>/dev/null)" = true ]; }
         echo "$(date +%T) log-out requested" >"$log"
@@ -97,7 +100,12 @@ log_out() {
         done
         echo "$(date +%T) not started: opening KDE'"'"'s log-out dialog" >>"$log"
         qdbus6 org.kde.LogoutPrompt /LogoutPrompt org.kde.LogoutPrompt.promptLogout >>"$log" 2>&1
-    ' _ "$log" >/dev/null 2>&1 </dev/null &
+    '
+    if command -v systemd-run >/dev/null; then
+        systemd-run --user --collect --quiet --unit="caelestia-window-frames-logout-$$" \
+            bash -c "$helper" _ "$log" >/dev/null 2>&1 && exit 0
+    fi
+    setsid bash -c "$helper" _ "$log" >/dev/null 2>&1 </dev/null &
     exit 0
 }
 if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] && command -v kdialog >/dev/null; then

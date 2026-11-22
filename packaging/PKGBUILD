@@ -1,0 +1,26 @@
+# Local package for caelestia-window-frames: pacman owns the installed files,
+# so `pacman -R caelestia-window-frames` removes them cleanly.
+# Built from the repository this file sits in (no download). Use ../rebuild.sh.
+
+pkgname=caelestia-window-frames
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="KWin window decoration that matches Caelestia KDE: its Material You colours, transparency, blur and motion"
+arch=('x86_64')
+url="https://github.com/COCONAT10MEN/caelestia-window-frames"
+license=('MIT')
+depends=('kwin' 'kdecoration' 'qt6-base' 'kcoreaddons' 'ttf-material-symbols-variable')
+makedepends=('cmake' 'extra-cmake-modules')
+
+build() {
+    cmake -B build -S "$startdir/.." \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_TESTING=OFF
+    cmake --build build
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build
+    install -Dm644 "$startdir/../LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

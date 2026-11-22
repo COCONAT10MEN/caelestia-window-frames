@@ -1,0 +1,14 @@
+{
+    "KPlugin": {
+        "Description": "Window frames that match Caelestia: its Material You colours, transparency, blur and motion",
+        "EnabledByDefault": true,
+        "Name": "Caelestia"
+    },
+    "org.kde.kdecoration3": {
+        "blur": true,
+        "recommendedBorderSize": "None",
+        "styles": [
+            "titled"
+        ]
+    }
+}

@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Uninstall Caelestia Window Frames
+Name=Uninstall
 Comment=Removes the Caelestia window decoration and switches back to Breeze
 Icon=edit-delete
 Exec=sh -c "cd \\"\\$(dirname \\"\\$1\\")\\" && ./launch.sh uninstall" sh %k

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install Caelestia Window Frames: builds and installs the window decoration,
 # selects it, and sets up its small shell part in Caelestia.
-# Double-click "Install Caelestia Window Frames" in this folder, or run ./install.sh.
+# Double-click "Install" in this folder, or run ./install.sh.
 set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 REPO=$(pwd)
@@ -19,14 +19,14 @@ finish() {
 }
 fail() {
     printf '\n%sSomething went wrong: %s%s\n' "$red" "$1" "$reset"
-    printf 'Nothing else was changed. You can scroll up to see the details.\n'
+    printf 'Nothing else changed. Scroll up for the details.\n'
     finish
     exit 1
 }
 trap 'fail "the step above failed."' ERR
 
 printf '%sCaelestia Window Frames - installer%s\n' "$bold" "$reset"
-printf 'Window titlebars made from the same material as Caelestia'"'"'s bar and frame.\n'
+printf 'Titlebars that match Caelestia'"'"'s bar and frame.\n'
 
 step "Checking your system"
 command -v pacman >/dev/null || fail "this installer needs an Arch-based system (Arch, CachyOS, EndeavourOS...)."
@@ -38,28 +38,28 @@ if [ -f "$SHELL_DIR/shell.qml" ]; then
     HAS_CAELESTIA=1
     printf '  Caelestia found.\n'
 else
-    printf '  %sCaelestia was not found: the decoration will still work, but the part that\n  lines it up with Caelestia'"'"'s frame is skipped.%s\n' "$dim" "$reset"
+    printf '  %sCaelestia isn'"'"'t installed. The titlebars still work, they just won'"'"'t line up\n  with Caelestia'"'"'s frame.%s\n' "$dim" "$reset"
 fi
 printf '  KDE Plasma %s found.\n' "$(pacman -Q kwin | cut -d' ' -f2)"
 
-step "Asking for your password (needed to install the package)"
+step "Need your password to install the package"
 sudo -v || fail "the password was not accepted."
 
-step "Building and installing the decoration (this takes a minute)"
+step "Building it (takes a minute)"
 ./rebuild.sh >/tmp/caelestia-window-frames-build.log 2>&1 || {
     tail -n 25 /tmp/caelestia-window-frames-build.log
     fail "the build failed (full log: /tmp/caelestia-window-frames-build.log)."
 }
 printf '  Installed %s.\n' "$(pacman -Q caelestia-window-frames)"
 
-step "Selecting it as your window decoration"
+step "Switching your window decoration to it"
 kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key library org.caelestia.windowframes
 kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme ""
 qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
 printf '  Done.\n'
 
 if [ "$HAS_CAELESTIA" = 1 ]; then
-    step "Setting up the Caelestia part"
+    step "Setting up the Caelestia side"
     # Skipped when this folder already is the plugin (installed from Settings -> Plugins).
     PLUGIN="$CONFIG/caelestia/plugins/caelestia-window-frames"
     if [ "$(readlink -f "$PLUGIN" 2>/dev/null)" != "$REPO" ]; then
@@ -67,13 +67,13 @@ if [ "$HAS_CAELESTIA" = 1 ]; then
         cp -r metadata.json LICENSE shell "$PLUGIN"/
     fi
     # No shell restart here: it loads at the next login, with the decoration.
-    printf '  Done (active after you log back in).\n'
+    printf '  Done (kicks in after you log back in).\n'
 fi
 
 trap - ERR
-printf '\n%s%sCaelestia Window Frames is installed.%s\n' "$bold" "$green" "$reset"
-printf 'KDE only loads a new window decoration when you log in, so log out and back in\nto see it. Save your work first.\n'
-command -v notify-send >/dev/null && notify-send -a "Caelestia Window Frames" "Installed" "Log out and back in to see your new window frames." || true
+printf '\n%s%sAll done!%s\n' "$bold" "$green" "$reset"
+printf 'KDE only picks up new window decorations at login, so log out and back in to\nsee it. Save your stuff first.\n'
+command -v notify-send >/dev/null && notify-send -a "Caelestia Window Frames" "Installed" "Log out and back in to see it." || true
 
 # Offer to log out: a KDE dialog when possible, else a question here.
 log_out() {
@@ -110,15 +110,15 @@ log_out() {
 }
 if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] && command -v kdialog >/dev/null; then
     if kdialog --title "Caelestia Window Frames" --yes-label "Log out now" --no-label "Later" \
-        --yesno "$(printf 'Caelestia Window Frames is installed.\n\nKDE loads a new window decoration when you log in. Log out now to see it?\n(Save your work first.)')"; then
+        --yesno "$(printf 'All done!\n\nKDE only picks up new window decorations at login. Log out now?\n(Save your stuff first.)')"; then
         log_out
     fi
-    printf 'OK: log out whenever you are ready.\n'
+    printf 'No worries, log out whenever.\n'
 elif [ -t 0 ]; then
     printf '\nLog out now? [Y/n] '
     read -r answer || answer=n
     case "$answer" in
-    [nN]*) printf 'OK: log out whenever you are ready.\n' ;;
+    [nN]*) printf 'No worries, log out whenever.\n' ;;
     *) log_out ;;
     esac
 fi

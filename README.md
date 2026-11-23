@@ -49,21 +49,17 @@ instead of a separate theme with its own opacity settings.
 **Requirements:** Arch-based system (CachyOS, Arch, EndeavourOS…), Plasma 6 on Wayland,
 Caelestia KDE (tested on 2.7.5). The installer pulls in everything it needs to build.
 
-This is not installed from Caelestia's *Settings → Plugins*: it is a KDE window decoration,
-so it installs on your system.
+Heads up: this one isn't a Settings → Plugins plugin. It's a KDE window decoration, so it
+installs on your system.
 
 ### Easy install
 
-1. Go to [**Releases**](https://github.com/COCONAT10MEN/caelestia-window-frames/releases/latest)
-   and download the `…-UNZIP-then-double-click-Install.zip` file.
-2. Unzip it (right-click → *Extract* → *Extract archive here*).
-3. Open the new folder and double-click **Install Caelestia Window Frames**. If KDE asks
-   whether to run it, choose *Execute* / *Run*.
-4. A terminal opens and does the rest: it asks for your password once, builds and installs
-   the decoration, selects it, and sets up the Caelestia part. At the end it offers to log
-   you out: KDE only loads a new window decoration at login. Save your work first.
+Grab the zip from the [latest release](https://github.com/COCONAT10MEN/caelestia-window-frames/releases/latest),
+unzip it and double-click **Install** inside (pick *Execute* if KDE asks). A terminal pops up,
+asks for your password once and does the rest. At the end it offers to log you out, since
+KDE only loads window decorations at login, so save your stuff first.
 
-To remove it later, double-click **Uninstall Caelestia Window Frames** in the same folder.
+To remove it, double-click **Uninstall** in the same folder.
 
 ### Install from the terminal
 
@@ -182,7 +178,7 @@ shell/                the shell part (Caelestia plugin: patch.py, main.qml)
 metadata.json         Caelestia plugin manifest for the shell part
 packaging/PKGBUILD    local pacman package, built from this folder
 install.sh            build, install and select the decoration, install the shell part
-Install … .desktop    double-click launchers (open install.sh / uninstall.sh in a terminal via launch.sh)
+Install.desktop       double-click launchers (Uninstall.desktop too), open the scripts in a terminal
 rebuild.sh            build and reinstall the decoration (after Plasma updates)
 uninstall.sh          remove both and switch back to Breeze
 assets/               README artwork

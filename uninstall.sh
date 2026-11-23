@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Remove Caelestia Window Frames and its Caelestia part, putting Breeze back.
-# Double-click "Uninstall Caelestia Window Frames" in this folder, or run ./uninstall.sh.
+# Double-click "Uninstall" in this folder, or run ./uninstall.sh.
 set -uo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 FROM_LAUNCHER=0
@@ -30,15 +30,15 @@ if [ -f "$PLUGIN/shell/patch.py" ]; then
     python3 -I "$PLUGIN/shell/patch.py" revert "$SHELL_DIR" >/dev/null || true
     rm -rf "$PLUGIN"
     rm -f "${XDG_STATE_HOME:-$HOME/.local/state}/caelestia/window-frames-edge"
-    printf '  Done: Caelestia is back to its original files (fully after you log back in).\n'
+    printf '  Done. Caelestia'"'"'s files are back to stock.\n'
 fi
 
 if pacman -Q caelestia-window-frames >/dev/null 2>&1; then
-    step "Removing the package (asks for your password)"
+    step "Removing the package (needs your password)"
     sudo pacman -R --noconfirm caelestia-window-frames && printf '  Done.\n'
 fi
 
-printf '\n%s%sCaelestia Window Frames is removed.%s\n' "$bold" "$green" "$reset"
+printf '\n%s%sRemoved.%s\n' "$bold" "$green" "$reset"
 printf 'Log out and back in to finish switching back to Breeze.\n'
 # Offer to log out: a KDE dialog when possible, else a question here.
 log_out() {
@@ -75,15 +75,15 @@ log_out() {
 }
 if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] && command -v kdialog >/dev/null; then
     if kdialog --title "Caelestia Window Frames" --yes-label "Log out now" --no-label "Later" \
-        --yesno "$(printf 'Caelestia Window Frames is removed.\n\nLog out now to finish switching back to Breeze?\n(Save your work first.)')"; then
+        --yesno "$(printf 'Removed.\n\nLog out now to finish switching back to Breeze?\n(Save your stuff first.)')"; then
         log_out
     fi
-    printf 'OK: log out whenever you are ready.\n'
+    printf 'No worries, log out whenever.\n'
 elif [ -t 0 ]; then
     printf '\nLog out now? [Y/n] '
     read -r answer || answer=n
     case "$answer" in
-    [nN]*) printf 'OK: log out whenever you are ready.\n' ;;
+    [nN]*) printf 'No worries, log out whenever.\n' ;;
     *) log_out ;;
     esac
 fi

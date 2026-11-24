@@ -4,7 +4,7 @@
 
 # caelestia-window-frames
 
-[![Caelestia KDE](https://img.shields.io/badge/Caelestia_KDE-2.7.5_tested-9bd0cc?style=for-the-badge&labelColor=101418)](https://github.com/caelestia-kde/caelestia)
+[![Caelestia KDE](https://img.shields.io/badge/Caelestia_KDE-2.7.6_tested-9bd0cc?style=for-the-badge&labelColor=101418)](https://github.com/caelestia-kde/caelestia)
 [![KDE Plasma](https://img.shields.io/badge/Plasma_6.8-1D99F3?logo=kde&logoColor=white&style=for-the-badge&labelColor=101418)](https://kde.org/plasma-desktop)
 [![Version](https://img.shields.io/badge/Version-1.3.1-9bd0cc?style=for-the-badge&labelColor=101418)](CMakeLists.txt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-9bd0cc?style=for-the-badge&labelColor=101418)](LICENSE)
@@ -12,7 +12,7 @@
 </div>
 
 > [!NOTE]
-> **✅ Tested and working on Caelestia KDE 2.7.5** (Plasma 6.8.3, KWin 6.8.3, Wayland).
+> **✅ Tested and working on Caelestia KDE 2.7.6** (and 2.7.5) (Plasma 6.8.3, KWin 6.8.3, Wayland).
 > Other versions may work too. After a Plasma update, run `./rebuild.sh` once (see below).
 
 A KWin window decoration for [Caelestia KDE](https://github.com/caelestia-kde/caelestia):
@@ -47,7 +47,7 @@ instead of a separate theme with its own opacity settings.
 ## Installation
 
 **Requirements:** Arch-based system (CachyOS, Arch, EndeavourOS…), Plasma 6 on Wayland,
-Caelestia KDE (tested on 2.7.5). The installer pulls in everything it needs to build.
+Caelestia KDE (tested on 2.7.5 and 2.7.6). The installer pulls in everything it needs to build.
 
 Heads up: this one isn't a Settings → Plugins plugin. It's a KDE window decoration, so it
 installs on your system.

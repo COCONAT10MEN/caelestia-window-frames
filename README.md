@@ -21,6 +21,14 @@ instead of a separate theme with its own opacity settings.
 
 ![Windows with Caelestia titlebars](assets/media/window-frames.jpg)
 
+The buttons: hover, press (the shape changes while you hold it) and close turning red.
+
+![Titlebar buttons reacting to hover and press](assets/media/buttons.gif)
+
+Switching schemes. Every titlebar follows right away, no KWin restart:
+
+![Titlebars changing colour as the scheme changes](assets/media/theme-sync.webp)
+
 ## What it does
 
 - **Caelestia's colours, live.** The titlebar is Caelestia's Material You `surface` colour,
@@ -45,16 +53,6 @@ instead of a separate theme with its own opacity settings.
 - **Layout.** App icon, title and a small arrow that opens the window menu. A thin outline
   around windowed windows only. Square corners where a tiled window meets its tile edge, so
   tiles fit together. No titlebar at all in fullscreen.
-
-## In motion
-
-The buttons: hover, press (the shape changes while you hold it) and close turning red.
-
-![Titlebar buttons reacting to hover and press](assets/media/buttons.gif)
-
-Switching schemes. Every titlebar follows right away, no KWin restart:
-
-![Titlebars changing colour as the scheme changes](assets/media/theme-sync.webp)
 
 ## Installation
 
